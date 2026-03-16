@@ -1,0 +1,10 @@
+name: "AgentScan"
+description: "Detects automation patterns on GitHub"
+author: "Matteo Gabriele"
+inputs:
+  github-token:
+    description: "GitHub token"
+    required: true
+runs:
+  using: "node24"
+  main: "dist/index.cjs"
