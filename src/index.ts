@@ -94,6 +94,15 @@ async function run() {
       events,
     });
 
+    const isFlagged = hasCommunityFlag || analysis.classification !== "organic";
+    core.setOutput("flagged", isFlagged ? "true" : "false");
+    core.setOutput("classification", analysis.classification);
+    core.setOutput("score", analysis.score);
+    core.setOutput("community-flagged", hasCommunityFlag ? "true" : "false");
+    core.setOutput("flags", JSON.stringify(analysis.flags));
+    core.setOutput("account-age", analysis.profile.age);
+    core.setOutput("username", username);
+
     const statusIndicators: Record<IdentityClassification, string> = {
       organic: "✅",
       mixed: "⚠️",
@@ -105,10 +114,10 @@ async function run() {
       : statusIndicators[analysis.classification];
     const details = hasCommunityFlag
       ? {
-          label: "Flagged by community",
-          description:
-            "This account has been flagged as potentially automated by the community.",
-        }
+        label: "Flagged by community",
+        description:
+          "This account has been flagged as potentially automated by the community.",
+      }
       : getClassificationDetails(analysis.classification);
 
     try {

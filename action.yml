@@ -5,6 +5,21 @@ inputs:
   github-token:
     description: "GitHub token"
     required: true
+outputs:
+  flagged:
+    description: "Whether the account was flagged"
+  classification:
+    description: "Classification result: organic, mixed, or automation"
+  score:
+    description: "Numeric score from 0 to 100"
+  community-flagged:
+    description: "Whether the account is on the community verified automations list"
+  flags:
+    description: "JSON array of flag objects with label, points, and detail"
+  account-age:
+    description: "Account age in days"
+  username:
+    description: "The GitHub username that was analyzed"
 runs:
   using: "node24"
   main: "dist/index.cjs"
