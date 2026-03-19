@@ -1,23 +1,2 @@
-# tsdown-starter
-
-A starter for creating a TypeScript package.
-
-## Development
-
-- Install dependencies:
-
-```bash
-npm install
-```
-
-- Run the unit tests:
-
-```bash
-npm run test
-```
-
-- Build the library:
-
-```bash
-npm run build
-```
+# AgentScan Action
+Analyzes GitHub PR activity patterns to detect automation signals and classify contribution automation levels
