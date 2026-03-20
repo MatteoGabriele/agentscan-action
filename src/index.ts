@@ -1,7 +1,5 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-import * as cache from "@actions/cache";
-import fs from "fs";
 
 import {
   identifyReplicant,
@@ -30,37 +28,16 @@ async function run() {
       throw new Error("No PR number found");
     }
 
-    const today = new Date().toISOString().split("T")[0];
-    const cacheKey = `agentscan-${username}-v1-${today}`;
-    const cachePath = `/tmp/agentscan-cache-${username}.json`;
+    const { data: user } = await octokit.rest.users.getByUsername({
+      username: username,
+    });
 
-    let user: any;
-    let events: any;
-    const restored = await cache.restoreCache([cachePath], cacheKey);
-
-    if (restored) {
-      core.info(`Cache hit for ${username}`);
-      const cachedData = JSON.parse(fs.readFileSync(cachePath, "utf-8"));
-      user = cachedData.user;
-      events = cachedData.events;
-    } else {
-      core.info(`Cache miss for ${username}, fetching from GitHub API`);
-      const { data: userData } = await octokit.rest.users.getByUsername({
-        username: username,
+    const { data: events } =
+      await octokit.rest.activity.listPublicEventsForUser({
+        username,
+        per_page: 100,
+        page: 1,
       });
-      user = userData;
-
-      const { data: eventsData } =
-        await octokit.rest.activity.listPublicEventsForUser({
-          username,
-          per_page: 100,
-          page: 1,
-        });
-      events = eventsData;
-
-      fs.writeFileSync(cachePath, JSON.stringify({ user, events }, null, 2));
-      await cache.saveCache([cachePath], cacheKey);
-    }
 
     let verified: AutomationListItem[] = [];
 
@@ -114,10 +91,10 @@ async function run() {
       : statusIndicators[analysis.classification];
     const details = hasCommunityFlag
       ? {
-        label: "Flagged by community",
-        description:
-          "This account has been flagged as potentially automated by the community.",
-      }
+          label: "Flagged by community",
+          description:
+            "This account has been flagged as potentially automated by the community.",
+        }
       : getClassificationDetails(analysis.classification);
 
     try {

@@ -1,9 +1,7 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  dts: {
-    tsgo: true,
+  deps: {
+    alwaysBundle: ["@actions/github", "@actions/core", "voight-kampff-test"],
   },
-  exports: true,
-  // ...config options
 });

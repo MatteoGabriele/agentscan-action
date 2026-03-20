@@ -1,26 +1,10 @@
 {
-  "name": "tsdown-starter",
+  "name": "agentscan-action",
   "type": "module",
   "version": "0.0.0",
   "description": "A starter for creating a TypeScript package.",
-  "author": "Author Name <author.name@mail.com>",
+  "author": "Matteo Gabriele <m.gabriele.dev@gmail.com>",
   "license": "MIT",
-  "homepage": "https://github.com/author/library#readme",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/author/library.git"
-  },
-  "bugs": {
-    "url": "https://github.com/author/library/issues"
-  },
-  "exports": {
-    ".": "./dist/index.mjs",
-    "./package.json": "./package.json"
-  },
-  "types": "./dist/index.d.mts",
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
@@ -31,13 +15,10 @@
   "devDependencies": {
     "@types/node": "^25.3.5",
     "@typescript/native-preview": "7.0.0-dev.20260309.1",
-    "bumpp": "^10.4.1",
     "tsdown": "^0.21.3",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@actions/cache": "^6.0.0",
     "@actions/core": "^3.0.0",
     "@actions/github": "^9.0.0",
     "voight-kampff-test": "^2.2.0"
