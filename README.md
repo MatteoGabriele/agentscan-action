@@ -74,6 +74,8 @@ steps:
 
 This will cache analysis results by username. Subsequent scans of the same account will use the cached data, reducing API calls and improving performance.
 
+**Cache Invalidation**: Cached entries automatically expire after 7 days. When a cache entry is older than the TTL (Time-To-Live), it will be invalidated and the account will be re-analyzed with fresh data from GitHub's API.
+
 ## Testing
 
 Run tests with vitest:
@@ -82,11 +84,15 @@ Run tests with vitest:
 pnpm run test
 ```
 
-Tests cover three main flows:
+Tests cover the following scenarios:
 
-- **Normal Flow**: Action analyzes a user without cache
-- **Cached Flow**: Action uses cached analysis and skips API calls
-- **Skip-Member Flow**: Action skips members in the skip list
+- **Normal Flow**: Analyzes a user without cache, saves result with timestamp
+- **Cached Flow**:
+  - Fresh cache (< 7 days): Uses cached data, skips API calls
+  - Stale cache (≥ 7 days): Invalidates cache, makes fresh API calls
+  - Corrupted cache: Falls back to API calls with warning
+- **Skip-Member Flow**: Members in skip list are not analyzed
+- **Label Assignment**: Correct labels added based on classification (organic, mixed, automation, community-flagged)
 
 ---
 

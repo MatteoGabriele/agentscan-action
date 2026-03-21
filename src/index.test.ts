@@ -1,16 +1,13 @@
 import type { IdentifyReplicantResult } from "voight-kampff-test";
+import { mkdtempSync, rmSync } from "fs";
+import { join } from "path";
 
-// Mock modules before importing the main module
 vi.mock("@actions/core");
 vi.mock("@actions/github");
-vi.mock("fs");
-vi.mock("path");
 vi.mock("voight-kampff-test");
 
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-import * as fs from "fs";
-import * as path from "path";
 import {
   identifyReplicant,
   getClassificationDetails,
@@ -68,6 +65,7 @@ describe("AgentScan Action", () => {
       },
       issues: {
         createComment: vi.fn().mockResolvedValue({}),
+        addLabels: vi.fn().mockResolvedValue({}),
       },
     };
 
@@ -88,11 +86,16 @@ describe("AgentScan Action", () => {
     };
   };
 
+  const createCacheEntry = (daysOld: number = 0): Record<string, unknown> => {
+    return {
+      analysis: mockAnalysis,
+      hasCommunityFlag: false,
+      isFlagged: false,
+      timestamp: Date.now() - daysOld * 24 * 60 * 60 * 1000,
+    };
+  };
+
   const setupCommonMocks = () => {
-    vi.mocked(fs.existsSync).mockReturnValue(false);
-    vi.mocked(fs.writeFileSync).mockImplementation(() => {});
-    vi.mocked(fs.mkdirSync).mockImplementation(() => "");
-    vi.mocked(path.join).mockImplementation((...args: any[]) => args.join("/"));
     vi.mocked(identifyReplicant).mockReturnValue(mockAnalysis);
     vi.mocked(getClassificationDetails).mockReturnValue({
       label: "Organic Account",
@@ -101,8 +104,17 @@ describe("AgentScan Action", () => {
     vi.mocked(core.setOutput).mockImplementation(() => {});
   };
 
+  let tempDir: string;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    tempDir = mkdtempSync(join("/tmp", "agentscan-test-"));
+  });
+
+  afterEach(() => {
+    if (tempDir) {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   describe("Normal Flow - No cache, no skip", () => {
@@ -126,38 +138,37 @@ describe("AgentScan Action", () => {
     });
 
     it("should save analysis to cache when cache-dir is provided", async () => {
-      setupInputs({ "cache-dir": ".cache" });
+      setupInputs({ "cache-dir": tempDir });
 
       await run();
 
-      expect(fs.writeFileSync).toHaveBeenCalled();
-      const cacheCall = vi.mocked(fs.writeFileSync).mock.calls[0];
-      expect(cacheCall[0]).toContain("test-user.json");
-
-      const cacheData = JSON.parse(String(cacheCall[1]));
+      const cacheFile = join(tempDir, "test-user.json");
+      const cacheData = JSON.parse(
+        require("fs").readFileSync(cacheFile, "utf-8"),
+      );
       expect(cacheData).toHaveProperty("analysis");
       expect(cacheData).toHaveProperty("hasCommunityFlag");
       expect(cacheData).toHaveProperty("isFlagged");
+      expect(cacheData).toHaveProperty("timestamp");
+      expect(typeof cacheData.timestamp).toBe("number");
     });
   });
 
   describe("Cached Flow - Cache exists and is used", () => {
     beforeEach(() => {
-      setupInputs({ "cache-dir": ".cache" });
+      setupInputs({ "cache-dir": tempDir });
       setupContext();
       setupCommonMocks();
-
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      const cachedData = {
-        analysis: mockAnalysis,
-        hasCommunityFlag: false,
-        isFlagged: false,
-      };
-      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(cachedData));
       vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
     });
 
-    it("should use cached analysis without making API calls", async () => {
+    it("should use fresh cached analysis without making API calls", async () => {
+      // Create cache with 1 day old timestamp (within 7-day TTL)
+      require("fs").writeFileSync(
+        join(tempDir, "test-user.json"),
+        JSON.stringify(createCacheEntry(1)),
+      );
+
       await run();
 
       const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
@@ -166,17 +177,50 @@ describe("AgentScan Action", () => {
         mockOctokit.rest.activity.listPublicEventsForUser,
       ).not.toHaveBeenCalled();
 
-      expect(fs.readFileSync).toHaveBeenCalled();
       expect(core.info).toHaveBeenCalledWith(
         expect.stringContaining("Using cached analysis"),
       );
       expect(mockOctokit.rest.issues.createComment).toHaveBeenCalled();
     });
 
+    it("should invalidate stale cache and make API calls", async () => {
+      // Create cache with 10 days old timestamp (beyond 7-day TTL)
+      const cacheFile = join(tempDir, "test-user.json");
+      const oldCacheData = createCacheEntry(10);
+      require("fs").writeFileSync(cacheFile, JSON.stringify(oldCacheData));
+
+      await run();
+
+      expect(core.info).toHaveBeenCalledWith(
+        expect.stringContaining("Cache expired"),
+      );
+
+      // Verify new cache was created with fresh timestamp (overwrites old cache)
+      expect(core.info).toHaveBeenCalledWith(
+        expect.stringContaining("Cached analysis"),
+      );
+
+      // Verify new cache has fresh timestamp
+      const newCacheData = JSON.parse(
+        require("fs").readFileSync(cacheFile, "utf-8"),
+      );
+      expect(newCacheData.timestamp).toBeGreaterThan(
+        (oldCacheData as any).timestamp + 86400000, // At least 1 day newer
+      );
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.users.getByUsername).toHaveBeenCalled();
+      expect(
+        mockOctokit.rest.activity.listPublicEventsForUser,
+      ).toHaveBeenCalled();
+    });
+
     it("should fallback to API calls if cache read fails", async () => {
-      vi.mocked(fs.readFileSync).mockImplementation(() => {
-        throw new Error("Cache read failed");
-      });
+      // Create a corrupted cache file (invalid JSON)
+      require("fs").writeFileSync(
+        join(tempDir, "test-user.json"),
+        "invalid json{",
+      );
 
       await run();
 
@@ -216,6 +260,111 @@ describe("AgentScan Action", () => {
 
       expect(identifyReplicant).toHaveBeenCalled();
       expect(core.setOutput).toHaveBeenCalledWith("username", "test-user");
+    });
+  });
+
+  describe("Label Assignment - Based on classification", () => {
+    beforeEach(() => {
+      setupInputs();
+      setupContext();
+      setupCommonMocks();
+    });
+
+    it("should not add labels for organic classification", async () => {
+      vi.mocked(identifyReplicant).mockReturnValue({
+        ...mockAnalysis,
+        classification: "organic",
+      });
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.addLabels).not.toHaveBeenCalled();
+    });
+
+    it("should add mixed-signals label for mixed classification", async () => {
+      vi.mocked(identifyReplicant).mockReturnValue({
+        ...mockAnalysis,
+        classification: "mixed",
+      });
+      vi.mocked(getClassificationDetails).mockReturnValue({
+        label: "Mixed Signals",
+        description: "This account shows mixed signals.",
+      });
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.addLabels).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        issue_number: 123,
+        labels: ["agentscan:mixed-signals"],
+      });
+    });
+
+    it("should add automated-account label for automation classification", async () => {
+      vi.mocked(identifyReplicant).mockReturnValue({
+        ...mockAnalysis,
+        classification: "automation",
+      });
+      vi.mocked(getClassificationDetails).mockReturnValue({
+        label: "Automated Account",
+        description: "This account appears to be automated.",
+      });
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.addLabels).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        issue_number: 123,
+        labels: ["agentscan:automated-account"],
+      });
+    });
+
+    it("should add community-flagged label for flagged accounts", async () => {
+      // Mock verified automation (community-flagged)
+      const flaggedAnalysis: IdentifyReplicantResult = {
+        ...mockAnalysis,
+        classification: "organic",
+      };
+
+      vi.mocked(identifyReplicant).mockReturnValue(flaggedAnalysis);
+      vi.mocked(github.getOctokit).mockReturnValue(
+        createMockOctokit({
+          repos: {
+            getContent: vi.fn().mockResolvedValue({
+              data: {
+                content: Buffer.from(
+                  JSON.stringify([
+                    {
+                      username: "test-user",
+                      reason: "Verified automation bot",
+                      createdAt: "2024-01-01",
+                      issueUrl: "https://example.com",
+                    },
+                  ]),
+                ),
+              },
+            }),
+          },
+        }) as any,
+      );
+
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.addLabels).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        issue_number: 123,
+        labels: ["agentscan:community-flagged"],
+      });
     });
   });
 });

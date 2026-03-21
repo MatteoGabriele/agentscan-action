@@ -17,6 +17,15 @@ type AutomationListItem = {
   issueUrl: string;
 };
 
+type CacheEntry = {
+  analysis: IdentifyReplicantResult;
+  hasCommunityFlag: boolean;
+  isFlagged: boolean;
+  timestamp: number;
+};
+
+const CACHE_TTL_DAYS = 2;
+
 async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
@@ -48,8 +57,22 @@ async function run() {
       const cacheFile = path.join(cacheDir, `${username}.json`);
       if (fs.existsSync(cacheFile)) {
         try {
-          cachedAnalysis = JSON.parse(fs.readFileSync(cacheFile, "utf-8"));
-          core.info(`Using cached analysis for ${username}`);
+          const cached = JSON.parse(
+            fs.readFileSync(cacheFile, "utf-8"),
+          ) as CacheEntry;
+          const cacheAgeMs = Date.now() - cached.timestamp;
+          const cacheAgeDays = cacheAgeMs / (1000 * 60 * 60 * 24);
+
+          if (cacheAgeDays < CACHE_TTL_DAYS) {
+            cachedAnalysis = cached;
+            core.info(
+              `Using cached analysis for ${username} (${cacheAgeDays.toFixed(1)} days old)`,
+            );
+          } else {
+            core.info(
+              `Cache expired for ${username} (${cacheAgeDays.toFixed(1)} days old, TTL: ${CACHE_TTL_DAYS} days)`,
+            );
+          }
         } catch (cacheError) {
           core.warning(`Failed to read cache: ${String(cacheError)}`);
         }
@@ -126,7 +149,8 @@ async function run() {
                 analysis,
                 hasCommunityFlag,
                 isFlagged,
-              },
+                timestamp: Date.now(),
+              } as CacheEntry,
               null,
               2,
             ),
