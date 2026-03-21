@@ -30,7 +30,8 @@ async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
     const skipMembersInput = core.getInput("skip-members");
-    const cacheDir = core.getInput("cache-dir");
+    const cacheEnabled = core.getInput("cache").toLowerCase() === "true";
+    const cacheDir = cacheEnabled ? ".agentscan-cache" : "";
     const skipMembers = skipMembersInput
       .split(",")
       .map((m) => m.trim())

@@ -1,6 +1,5 @@
 import type { IdentifyReplicantResult } from "voight-kampff-test";
-import { mkdtempSync, rmSync } from "fs";
-import { join } from "path";
+import { rmSync } from "fs";
 
 vi.mock("@actions/core");
 vi.mock("@actions/github");
@@ -34,7 +33,7 @@ describe("AgentScan Action", () => {
     const defaults: Record<string, string> = {
       "github-token": "test-token",
       "skip-members": "",
-      "cache-dir": "",
+      cache: "false",
     };
     const config = { ...defaults, ...overrides };
 
@@ -104,16 +103,16 @@ describe("AgentScan Action", () => {
     vi.mocked(core.setOutput).mockImplementation(() => {});
   };
 
-  let tempDir: string;
-
   beforeEach(() => {
     vi.clearAllMocks();
-    tempDir = mkdtempSync(join("/tmp", "agentscan-test-"));
   });
 
   afterEach(() => {
-    if (tempDir) {
-      rmSync(tempDir, { recursive: true, force: true });
+    // Clean up cache directory
+    try {
+      rmSync(".agentscan-cache", { recursive: true, force: true });
+    } catch {
+      // Ignore if not present
     }
   });
 
@@ -137,12 +136,12 @@ describe("AgentScan Action", () => {
       expect(mockOctokit.rest.issues.createComment).toHaveBeenCalled();
     });
 
-    it("should save analysis to cache when cache-dir is provided", async () => {
-      setupInputs({ "cache-dir": tempDir });
+    it("should save analysis to cache when cache is enabled", async () => {
+      setupInputs({ cache: "true" });
 
       await run();
 
-      const cacheFile = join(tempDir, "test-user.json");
+      const cacheFile = ".agentscan-cache/test-user.json";
       const cacheData = JSON.parse(
         require("fs").readFileSync(cacheFile, "utf-8"),
       );
@@ -156,7 +155,7 @@ describe("AgentScan Action", () => {
 
   describe("Cached Flow - Cache exists and is used", () => {
     beforeEach(() => {
-      setupInputs({ "cache-dir": tempDir });
+      setupInputs({ cache: "true" });
       setupContext();
       setupCommonMocks();
       vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
@@ -164,8 +163,9 @@ describe("AgentScan Action", () => {
 
     it("should use fresh cached analysis without making API calls", async () => {
       // Create cache with 1 day old timestamp (within 7-day TTL)
+      require("fs").mkdirSync(".agentscan-cache", { recursive: true });
       require("fs").writeFileSync(
-        join(tempDir, "test-user.json"),
+        ".agentscan-cache/test-user.json",
         JSON.stringify(createCacheEntry(1)),
       );
 
@@ -185,8 +185,9 @@ describe("AgentScan Action", () => {
 
     it("should invalidate stale cache and make API calls", async () => {
       // Create cache with 10 days old timestamp (beyond 7-day TTL)
-      const cacheFile = join(tempDir, "test-user.json");
+      const cacheFile = ".agentscan-cache/test-user.json";
       const oldCacheData = createCacheEntry(10);
+      require("fs").mkdirSync(".agentscan-cache", { recursive: true });
       require("fs").writeFileSync(cacheFile, JSON.stringify(oldCacheData));
 
       await run();
@@ -217,8 +218,9 @@ describe("AgentScan Action", () => {
 
     it("should fallback to API calls if cache read fails", async () => {
       // Create a corrupted cache file (invalid JSON)
+      require("fs").mkdirSync(".agentscan-cache", { recursive: true });
       require("fs").writeFileSync(
-        join(tempDir, "test-user.json"),
+        ".agentscan-cache/test-user.json",
         "invalid json{",
       );
 

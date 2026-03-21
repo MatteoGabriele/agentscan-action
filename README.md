@@ -36,7 +36,7 @@ The action will run automatically on new and reopened pull requests, analyzing t
 
 - **github-token** (required): GitHub token for API access
 - **skip-members** (optional): Comma-separated list of usernames to skip from scanning
-- **cache-dir** (optional): Directory to store analysis cache for faster repeated scans
+- **cache** (optional): Enable caching of analysis results to speed up repeated scans (default: false)
 
 ### Skip Members
 
@@ -54,7 +54,17 @@ Members in the skip list will be excluded from analysis without any PR comment o
 
 ### Caching
 
-To cache analysis results and avoid redundant API calls, use the `actions/cache` action with the `cache-dir` input:
+To enable caching and avoid redundant API calls, set the `cache` input to `true`:
+
+```yaml
+- name: AgentScan
+  uses: MatteoGabriele/agentscan-action@v1.0.1
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    cache: true
+```
+
+Cache files are stored in `.agentscan-cache` directory. To preserve cache across workflow runs, use the `actions/cache` action:
 
 ```yaml
 steps:
@@ -69,10 +79,8 @@ steps:
     uses: MatteoGabriele/agentscan-action@v1.0.1
     with:
       github-token: ${{ secrets.GITHUB_TOKEN }}
-      cache-dir: .agentscan-cache
+      cache: true
 ```
-
-This will cache analysis results by username. Subsequent scans of the same account will use the cached data, reducing API calls and improving performance.
 
 **Cache Invalidation**: Cached entries automatically expire after 7 days. When a cache entry is older than the TTL (Time-To-Live), it will be invalidated and the account will be re-analyzed with fresh data from GitHub's API.
 
