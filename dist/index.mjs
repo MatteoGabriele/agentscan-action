@@ -19809,11 +19809,17 @@ function h(e) {
 //#region src/index.ts
 async function run() {
 	try {
-		const octokit = getOctokit(getInput("github-token", { required: true }));
+		const token = getInput("github-token", { required: true });
+		const skipMembers = getInput("skip-members").split(",").map((m) => m.trim()).filter(Boolean);
+		const octokit = getOctokit(token);
 		const context$2 = context;
 		const username = context$2.actor;
 		const prNumber = context$2.payload.pull_request?.number;
 		if (!prNumber) throw new Error("No PR number found");
+		if (skipMembers.includes(username)) {
+			info(`Skipping analysis for ${username}`);
+			return;
+		}
 		const { data: user } = await octokit.rest.users.getByUsername({ username });
 		const { data: events } = await octokit.rest.activity.listPublicEventsForUser({
 			username,
