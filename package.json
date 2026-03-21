@@ -16,7 +16,8 @@
     "@types/node": "^25.3.5",
     "@typescript/native-preview": "7.0.0-dev.20260309.1",
     "tsdown": "^0.21.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.8"
   },
   "dependencies": {
     "@actions/core": "^3.0.0",
