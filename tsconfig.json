@@ -6,7 +6,7 @@
     "module": "preserve",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "types": ["node"],
+    "types": ["node", "vitest/globals"],
     "strict": true,
     "noUnusedLocals": true,
     "declaration": true,

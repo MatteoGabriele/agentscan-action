@@ -9,6 +9,10 @@ inputs:
     description: "Comma-separated list of usernames to skip from scanning"
     required: false
     default: ""
+  cache:
+    description: "Enable caching of analysis results"
+    required: false
+    default: "false"
 outputs:
   flagged:
     description: "Whether the account was flagged"

@@ -1,5 +1,7 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
+import * as fs from "fs";
+import * as path from "path";
 
 import {
   identifyReplicant,
@@ -15,16 +17,25 @@ type AutomationListItem = {
   issueUrl: string;
 };
 
+type CacheEntry = {
+  analysis: IdentifyReplicantResult;
+  hasCommunityFlag: boolean;
+  isFlagged: boolean;
+  timestamp: number;
+};
+
+const CACHE_TTL_DAYS = 2;
+
 async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
     const skipMembersInput = core.getInput("skip-members");
+    const cacheEnabled = core.getInput("cache").toLowerCase() === "true";
+    const cacheDir = cacheEnabled ? ".agentscan-cache" : "";
     const skipMembers = skipMembersInput
       .split(",")
       .map((m) => m.trim())
       .filter(Boolean);
-
-    const octokit = github.getOctokit(token);
 
     const context = github.context;
     const username = context.actor;
@@ -39,50 +50,119 @@ async function run() {
       return;
     }
 
-    const { data: user } = await octokit.rest.users.getByUsername({
-      username: username,
-    });
+    const octokit = github.getOctokit(token);
 
-    const { data: events } =
-      await octokit.rest.activity.listPublicEventsForUser({
-        username,
-        per_page: 100,
-        page: 1,
-      });
+    // Check cache if cache directory is provided
+    let cachedAnalysis: Record<string, unknown> | null = null;
+    if (cacheDir) {
+      const cacheFile = path.join(cacheDir, `${username}.json`);
+      if (fs.existsSync(cacheFile)) {
+        try {
+          const cached = JSON.parse(
+            fs.readFileSync(cacheFile, "utf-8"),
+          ) as CacheEntry;
+          const cacheAgeMs = Date.now() - cached.timestamp;
+          const cacheAgeDays = cacheAgeMs / (1000 * 60 * 60 * 24);
 
-    let verified: AutomationListItem[] = [];
-
-    try {
-      const { data: verifiedList } = await octokit.rest.repos.getContent({
-        owner: "matteogabriele",
-        repo: "agentscan",
-        path: "data/verified-automations-list.json",
-      });
-
-      if ("content" in verifiedList) {
-        const content = Buffer.from(verifiedList.content, "base64").toString(
-          "utf-8",
-        );
-        verified = JSON.parse(content) as AutomationListItem[];
+          if (cacheAgeDays < CACHE_TTL_DAYS) {
+            cachedAnalysis = cached;
+            core.info(
+              `Using cached analysis for ${username} (${cacheAgeDays.toFixed(1)} days old)`,
+            );
+          } else {
+            core.info(
+              `Cache expired for ${username} (${cacheAgeDays.toFixed(1)} days old, TTL: ${CACHE_TTL_DAYS} days)`,
+            );
+          }
+        } catch (cacheError) {
+          core.warning(`Failed to read cache: ${String(cacheError)}`);
+        }
       }
-    } catch (error) {
-      core.warning("Could not fetch verified automations list");
     }
 
-    const verifiedAutomation: AutomationListItem | undefined = verified.find(
-      (account) => account.username === username,
-    );
+    let hasCommunityFlag = false;
+    let analysis: IdentifyReplicantResult | null = null;
+    let isFlagged = false;
 
-    const hasCommunityFlag: boolean = !!verifiedAutomation;
+    // Use cached analysis if available, otherwise make API calls
+    if (cachedAnalysis) {
+      // Use cached analysis
+      analysis = cachedAnalysis.analysis as IdentifyReplicantResult;
+      hasCommunityFlag = (cachedAnalysis.hasCommunityFlag as boolean) || false;
+      isFlagged = (cachedAnalysis.isFlagged as boolean) || false;
+    } else {
+      const { data: user } = await octokit.rest.users.getByUsername({
+        username: username,
+      });
 
-    const analysis: IdentifyReplicantResult = identifyReplicant({
-      accountName: username,
-      reposCount: user.public_repos,
-      createdAt: user.created_at,
-      events,
-    });
+      const { data: events } =
+        await octokit.rest.activity.listPublicEventsForUser({
+          username,
+          per_page: 100,
+          page: 1,
+        });
 
-    const isFlagged = hasCommunityFlag || analysis.classification !== "organic";
+      let verified: AutomationListItem[] = [];
+
+      try {
+        const { data: verifiedList } = await octokit.rest.repos.getContent({
+          owner: "matteogabriele",
+          repo: "agentscan",
+          path: "data/verified-automations-list.json",
+        });
+
+        if ("content" in verifiedList) {
+          const content = Buffer.from(verifiedList.content, "base64").toString(
+            "utf-8",
+          );
+          verified = JSON.parse(content) as AutomationListItem[];
+        }
+      } catch (error) {
+        core.warning("Could not fetch verified automations list");
+      }
+
+      const verifiedAutomation: AutomationListItem | undefined = verified.find(
+        (account) => account.username === username,
+      );
+
+      hasCommunityFlag = !!verifiedAutomation;
+
+      analysis = identifyReplicant({
+        accountName: username,
+        reposCount: user.public_repos,
+        createdAt: user.created_at,
+        events,
+      });
+
+      isFlagged = hasCommunityFlag || analysis.classification !== "organic";
+
+      // Save analysis result to cache
+      if (cacheDir) {
+        try {
+          if (!fs.existsSync(cacheDir)) {
+            fs.mkdirSync(cacheDir, { recursive: true });
+          }
+          const cacheFile = path.join(cacheDir, `${username}.json`);
+          fs.writeFileSync(
+            cacheFile,
+            JSON.stringify(
+              {
+                analysis,
+                hasCommunityFlag,
+                isFlagged,
+                timestamp: Date.now(),
+              } as CacheEntry,
+              null,
+              2,
+            ),
+          );
+          core.info(`Cached analysis for ${username}`);
+        } catch (cacheError) {
+          core.warning(`Failed to save cache: ${String(cacheError)}`);
+        }
+      }
+    }
+
     core.setOutput("flagged", isFlagged ? "true" : "false");
     core.setOutput("classification", analysis.classification);
     core.setOutput("score", analysis.score);
@@ -169,4 +249,9 @@ ${details.description}
   }
 }
 
-run();
+export { run };
+
+// Only run when this is the main module (not imported for testing)
+if (process.env.NODE_ENV !== "test") {
+  run();
+}
