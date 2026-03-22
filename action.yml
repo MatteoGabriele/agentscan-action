@@ -9,14 +9,14 @@ inputs:
     description: "Comma-separated list of usernames to skip from scanning"
     required: false
     default: ""
-  cache:
-    description: "Enable caching of analysis results"
-    required: false
-    default: "false"
   skip-comment-on-organic:
     description: "Skip posting comment on PR if analysis result is 'organic'"
     required: false
     default: "false"
+  cache-path:
+    description: "Path to cache directory (e.g., '.agentscan-cache') - if provided, analysis results will be cached"
+    required: false
+    default: ""
 outputs:
   flagged:
     description: "Whether the account was flagged"

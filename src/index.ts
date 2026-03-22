@@ -30,10 +30,9 @@ async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
     const skipMembersInput = core.getInput("skip-members");
-    const cacheEnabled = core.getInput("cache").toLowerCase() === "true";
     const skipCommentOnOrganic =
       core.getInput("skip-comment-on-organic").toLowerCase() === "true";
-    const cacheDir = cacheEnabled ? ".agentscan-cache" : "";
+    const cacheDir = core.getInput("cache-path");
     const skipMembers = skipMembersInput
       .split(",")
       .map((m) => m.trim())
@@ -56,7 +55,7 @@ async function run() {
 
     // Check cache if cache directory is provided
     let cachedAnalysis: Record<string, unknown> | null = null;
-    if (cacheDir) {
+    if (cacheDir !== "") {
       const cacheFile = path.join(cacheDir, `${username}.json`);
       if (fs.existsSync(cacheFile)) {
         try {
