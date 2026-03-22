@@ -9,6 +9,10 @@ inputs:
     description: "Comma-separated list of usernames to skip from scanning"
     required: false
     default: ""
+  agent-scan-comment:
+    description: "Whether to enable AgentScan commenting on the issue or PR. True by default. You can disable this if you only want to use the outputs and not have the action comment on the issue or PR."
+    required: false
+    default: "true"
   skip-comment-on-organic:
     description: "Skip posting comment on PR if analysis result is 'organic'"
     required: false
