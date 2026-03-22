@@ -33,7 +33,8 @@ describe("AgentScan Action", () => {
     const defaults: Record<string, string> = {
       "github-token": "test-token",
       "skip-members": "",
-      cache: "false",
+      "cache-path": "",
+      "skip-comment-on-organic": "false",
     };
     const config = { ...defaults, ...overrides };
 
@@ -136,8 +137,8 @@ describe("AgentScan Action", () => {
       expect(mockOctokit.rest.issues.createComment).toHaveBeenCalled();
     });
 
-    it("should save analysis to cache when cache is enabled", async () => {
-      setupInputs({ cache: "true" });
+    it("should save analysis to cache when cache path is provided", async () => {
+      setupInputs({ "cache-path": ".agentscan-cache" });
 
       await run();
 
@@ -155,14 +156,15 @@ describe("AgentScan Action", () => {
 
   describe("Cached Flow - Cache exists and is used", () => {
     beforeEach(() => {
-      setupInputs({ cache: "true" });
+      setupInputs({ "cache-path": ".agentscan-cache" });
       setupContext();
       setupCommonMocks();
       vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
     });
 
     it("should use fresh cached analysis without making API calls", async () => {
-      // Create cache with 1 day old timestamp (within 7-day TTL)
+      setupInputs({ "cache-path": ".agentscan-cache" });
+      // Create cache with 1 day old timestamp (within 2-day TTL)
       require("fs").mkdirSync(".agentscan-cache", { recursive: true });
       require("fs").writeFileSync(
         ".agentscan-cache/test-user.json",
@@ -184,7 +186,7 @@ describe("AgentScan Action", () => {
     });
 
     it("should invalidate stale cache and make API calls", async () => {
-      // Create cache with 10 days old timestamp (beyond 7-day TTL)
+      // Create cache with 10 days old timestamp (beyond 2-day TTL)
       const cacheFile = ".agentscan-cache/test-user.json";
       const oldCacheData = createCacheEntry(10);
       require("fs").mkdirSync(".agentscan-cache", { recursive: true });
