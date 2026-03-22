@@ -102,25 +102,27 @@ async function run() {
       : statusIndicators[analysis.classification];
     const details = hasCommunityFlag
       ? {
-          label: "Flagged by community",
-          description:
-            "This account has been flagged as potentially automated by the community.",
-        }
+        label: "Flagged by community",
+        description:
+          "This account has been flagged as potentially automated by the community.",
+      }
       : getClassificationDetails(analysis.classification);
 
     try {
-      await octokit.rest.issues.createComment({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        issue_number: prNumber,
-        body: `### ${indicator} ${details.label}
+      if (core.getInput("agent-scan-comment") === "true") {
+        await octokit.rest.issues.createComment({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          issue_number: prNumber,
+          body: `### ${indicator} ${details.label}
 
 ${details.description}
 
 [View full analysis →](https://agentscan.netlify.app/user/${username})
 
 <sub>This is an automated analysis by [AgentScan](https://agentscan.netlify.app)</sub>`,
-      });
+        });
+      }
 
       const labelsToAdd: string[] = [];
 
