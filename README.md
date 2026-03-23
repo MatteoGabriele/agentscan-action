@@ -82,7 +82,7 @@ steps:
 4. `actions/cache` persists the directory between workflow runs
 5. On subsequent runs, cached results are reused if they're within the TTL period
 
-**Cache Invalidation**: Cached entries automatically expire after 2 days. When a cache entry is older than the TTL (Time-To-Live), it will be invalidated and the account will be re-analyzed with fresh data from GitHub's API.
+**Cache Invalidation**: Cached entries automatically expire after 2 days.
 
 ### Skip Organic Comments
 
