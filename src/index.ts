@@ -24,15 +24,19 @@ type CacheEntry = {
   timestamp: number;
 };
 
+type TriggerLevel = "all" | "flagged" | "off";
+
 const CACHE_TTL_DAYS = 2;
 
 async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
-    const skipMembersInput = core.getInput("skip-members");
-    const skipCommentOnOrganic =
-      core.getInput("skip-comment-on-organic").toLowerCase() === "true";
-    const cacheDir = core.getInput("cache-path");
+    const triggerLevel = core.getInput("trigger-level", { required: false }) as
+      | TriggerLevel
+      | undefined;
+    const cacheDir = core.getInput("cache-path", { required: false });
+
+    const skipMembersInput = core.getInput("skip-members", { required: false });
     const skipMembers = skipMembersInput
       .split(",")
       .map((m) => m.trim())
@@ -172,15 +176,8 @@ async function run() {
     core.setOutput("account-age", analysis.profile.age);
     core.setOutput("username", username);
 
-    // Skip commenting if analysis is organic and skip-comment-on-organic is enabled
-    if (
-      skipCommentOnOrganic &&
-      !hasCommunityFlag &&
-      analysis.classification === "organic"
-    ) {
-      core.info(
-        "Skipping comment on PR as analysis returned 'organic' and skip-comment-on-organic is enabled",
-      );
+    if (triggerLevel === "off" || (triggerLevel === "flagged" && !isFlagged)) {
+      core.info("[trigger-level] skipping comments");
       return;
     }
 
@@ -195,27 +192,25 @@ async function run() {
       : statusIndicators[analysis.classification];
     const details = hasCommunityFlag
       ? {
-        label: "Flagged by community",
-        description:
-          "This account has been flagged as potentially automated by the community.",
-      }
+          label: "Flagged by community",
+          description:
+            "This account has been flagged as potentially automated by the community.",
+        }
       : getClassificationDetails(analysis.classification);
 
     try {
-      if (core.getInput("agent-scan-comment") === "true") {
-        await octokit.rest.issues.createComment({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          issue_number: prNumber,
-          body: `### ${indicator} ${details.label}
+      await octokit.rest.issues.createComment({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: prNumber,
+        body: `### ${indicator} ${details.label}
 
 ${details.description}
 
 [View full analysis →](https://agentscan.netlify.app/user/${username})
 
 <sub>This is an automated analysis by [AgentScan](https://agentscan.netlify.app)</sub>`,
-        });
-      }
+      });
 
       const labelsToAdd: string[] = [];
 
