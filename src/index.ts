@@ -24,22 +24,15 @@ type CacheEntry = {
   timestamp: number;
 };
 
-type ReportStatus = IdentityClassification | "community-flag";
-type Report = "true" | "false" | ReportStatus[] | (string & {});
-
 const CACHE_TTL_DAYS = 2;
 
 async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
-
-    const report = core.getInput("report", {
-      required: false,
-    }) as Report;
-
-    const cacheDir = core.getInput("cache-path", { required: false });
-
-    const skipMembersInput = core.getInput("skip-members", { required: false });
+    const skipMembersInput = core.getInput("skip-members");
+    const skipCommentOnOrganic =
+      core.getInput("skip-comment-on-organic").toLowerCase() === "true";
+    const cacheDir = core.getInput("cache-path");
     const skipMembers = skipMembersInput
       .split(",")
       .map((m) => m.trim())
@@ -179,8 +172,15 @@ async function run() {
     core.setOutput("account-age", analysis.profile.age);
     core.setOutput("username", username);
 
-    if (report === "false") {
-      core.info("[report] skipping all type of comments");
+    // Skip commenting if analysis is organic and skip-comment-on-organic is enabled
+    if (
+      skipCommentOnOrganic &&
+      !hasCommunityFlag &&
+      analysis.classification === "organic"
+    ) {
+      core.info(
+        "Skipping comment on PR as analysis returned 'organic' and skip-comment-on-organic is enabled",
+      );
       return;
     }
 
@@ -193,32 +193,16 @@ async function run() {
     const indicator = hasCommunityFlag
       ? "🚩"
       : statusIndicators[analysis.classification];
-
     const details = hasCommunityFlag
       ? {
-          label: "Flagged by community",
-          description:
-            "This account has been flagged as potentially automated by the community.",
-        }
+        label: "Flagged by community",
+        description:
+          "This account has been flagged as potentially automated by the community.",
+      }
       : getClassificationDetails(analysis.classification);
 
-    let reportStatusList: ReportStatus[] = [];
-
-    if (report !== "" && report !== "true") {
-      try {
-        reportStatusList = JSON.parse(report as string);
-      } catch (error) {
-        core.warning(`Failed to parse the report options: ${String(error)}`);
-      }
-    }
-
-    const shouldCreateComment =
-      report === "true" ||
-      reportStatusList.includes(analysis.classification) ||
-      (reportStatusList.includes("community-flag") && hasCommunityFlag);
-
     try {
-      if (shouldCreateComment) {
+      if (core.getInput("agent-scan-comment") === "true") {
         await octokit.rest.issues.createComment({
           owner: context.repo.owner,
           repo: context.repo.repo,
@@ -243,7 +227,7 @@ ${details.description}
           string
         > = {
           mixed: "agentscan:mixed-signals",
-          automation: "agentscan:automation-signals",
+          automation: "agentscan:automated-account",
         };
 
         const label = labelMap[analysis.classification];
