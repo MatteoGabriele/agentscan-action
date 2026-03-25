@@ -24,16 +24,16 @@ type CacheEntry = {
   timestamp: number;
 };
 
-type TriggerLevel = "all" | "flagged" | "off";
+type TriggerLevel = "all" | "flagged" | "off" | (string & {});
 
 const CACHE_TTL_DAYS = 2;
 
 async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
-    const triggerLevel = core.getInput("trigger-level", { required: false }) as
-      | TriggerLevel
-      | undefined;
+    const triggerLevel = core.getInput("trigger-level", {
+      required: false,
+    }) as TriggerLevel;
     const cacheDir = core.getInput("cache-path", { required: false });
 
     const skipMembersInput = core.getInput("skip-members", { required: false });
