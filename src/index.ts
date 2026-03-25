@@ -179,11 +179,6 @@ async function run() {
     core.setOutput("account-age", analysis.profile.age);
     core.setOutput("username", username);
 
-    if (report === "false") {
-      core.info("[report] skipping all type of comments");
-      return;
-    }
-
     const statusIndicators: Record<IdentityClassification, string> = {
       organic: "✅",
       mixed: "⚠️",
@@ -204,7 +199,9 @@ async function run() {
 
     let reportStatusList: ReportStatus[] = [];
 
-    if (report !== "" && report !== "true") {
+    if (report === "false") {
+      core.info("[report] skipping all type of comments");
+    } else if (report !== "" && report !== "true") {
       try {
         reportStatusList = JSON.parse(report as string);
       } catch (error) {
