@@ -9,10 +9,14 @@ inputs:
     description: "Comma-separated list of usernames to skip from scanning"
     required: false
     default: ""
-  trigger-level:
-    description: "When should comment on your PR. Choose: off (never), flagged (suspicious only), all (always)"
+  report:
+    description: |
+      What to report. Can be:
+      - Boolean: "true" (all results) or "false" (never report)
+      - JSON Array: '["automation", "community-flag"]' (specific classifications only)
+      Valid classifications: organic, mixed, automation, community-flag
     required: false
-    default: "all"
+    default: "true"
   cache-path:
     description: "Path to cache directory (e.g., '.agentscan-cache') - if provided, analysis results will be cached"
     required: false

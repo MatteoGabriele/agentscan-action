@@ -24,16 +24,19 @@ type CacheEntry = {
   timestamp: number;
 };
 
-type TriggerLevel = "all" | "flagged" | "off" | (string & {});
+type ReportStatus = IdentityClassification | "community-flag";
+type Report = "true" | "false" | ReportStatus[] | (string & {});
 
 const CACHE_TTL_DAYS = 2;
 
 async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
-    const triggerLevel = core.getInput("trigger-level", {
+
+    const report = core.getInput("report", {
       required: false,
-    }) as TriggerLevel;
+    }) as Report;
+
     const cacheDir = core.getInput("cache-path", { required: false });
 
     const skipMembersInput = core.getInput("skip-members", { required: false });
@@ -176,8 +179,8 @@ async function run() {
     core.setOutput("account-age", analysis.profile.age);
     core.setOutput("username", username);
 
-    if (triggerLevel === "off" || (triggerLevel === "flagged" && !isFlagged)) {
-      core.info("[trigger-level] skipping comments");
+    if (report === "false") {
+      core.info("[report] skipping all type of comments");
       return;
     }
 
@@ -190,6 +193,7 @@ async function run() {
     const indicator = hasCommunityFlag
       ? "🚩"
       : statusIndicators[analysis.classification];
+
     const details = hasCommunityFlag
       ? {
           label: "Flagged by community",
@@ -198,19 +202,36 @@ async function run() {
         }
       : getClassificationDetails(analysis.classification);
 
+    let reportStatusList: ReportStatus[] = [];
+
+    if (report !== "" && report !== "true") {
+      try {
+        reportStatusList = JSON.parse(report as string);
+      } catch (error) {
+        core.warning(`Failed to parse the report options: ${String(error)}`);
+      }
+    }
+
+    const shouldCreateComment =
+      report === "true" ||
+      reportStatusList.includes(analysis.classification) ||
+      (reportStatusList.includes("community-flag") && hasCommunityFlag);
+
     try {
-      await octokit.rest.issues.createComment({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        issue_number: prNumber,
-        body: `### ${indicator} ${details.label}
+      if (shouldCreateComment) {
+        await octokit.rest.issues.createComment({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          issue_number: prNumber,
+          body: `### ${indicator} ${details.label}
 
 ${details.description}
 
 [View full analysis →](https://agentscan.netlify.app/user/${username})
 
 <sub>This is an automated analysis by [AgentScan](https://agentscan.netlify.app)</sub>`,
-      });
+        });
+      }
 
       const labelsToAdd: string[] = [];
 
@@ -222,7 +243,7 @@ ${details.description}
           string
         > = {
           mixed: "agentscan:mixed-signals",
-          automation: "agentscan:automated-account",
+          automation: "agentscan:automation-signals",
         };
 
         const label = labelMap[analysis.classification];
