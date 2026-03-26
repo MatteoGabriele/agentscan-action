@@ -228,6 +228,8 @@ ${details.description}
 
 <sub>This is an automated analysis by [AgentScan](https://agentscan.netlify.app)</sub>`,
         });
+
+        core.info(`Comment posted on PR #${prNumber}`);
       }
 
       const labelsToAdd: string[] = [];
@@ -257,8 +259,6 @@ ${details.description}
           labels: labelsToAdd,
         });
       }
-
-      core.info(`Comment posted on PR #${prNumber}`);
     } catch (commentError: unknown) {
       if (commentError instanceof Error) {
         if (commentError.message.includes("Resource not accessible")) {
