@@ -35,7 +35,7 @@ async function run() {
     const cacheDir = core.getInput("cache-path");
     const aiAnalysisEnabled =
       core.getInput("ai-analysis").toLowerCase() === "true";
-    const aiModel = core.getInput("ai-model") || "deepseek/DeepSeek-R1";
+    const aiModel = core.getInput("ai-model") || "openai/gpt-4o-mini";
     const skipMembers = skipMembersInput
       .split(",")
       .map((m) => m.trim())
