@@ -2,13 +2,13 @@ import * as core from "@actions/core";
 import * as github from "@actions/github";
 import * as fs from "fs";
 import * as path from "path";
-
 import {
   identifyReplicant,
   getClassificationDetails,
   type IdentifyReplicantResult,
   type IdentityClassification,
 } from "voight-kampff-test";
+import { getAIAnalysis, type AIAnalysisResult } from "./ai";
 
 type AutomationListItem = {
   username: string;
@@ -33,6 +33,9 @@ async function run() {
     const skipCommentOnOrganic =
       core.getInput("skip-comment-on-organic").toLowerCase() === "true";
     const cacheDir = core.getInput("cache-path");
+    const aiAnalysisEnabled =
+      core.getInput("ai-analysis").toLowerCase() === "true";
+    const aiModel = core.getInput("ai-model") || "openai/gpt-4o-mini";
     const skipMembers = skipMembersInput
       .split(",")
       .map((m) => m.trim())
@@ -84,6 +87,9 @@ async function run() {
     let hasCommunityFlag = false;
     let analysis: IdentifyReplicantResult | null = null;
     let isFlagged = false;
+    let accountCreatedAt = "";
+    let publicRepos = 0;
+    let userEvents: Record<string, unknown>[] = [];
 
     // Use cached analysis if available, otherwise make API calls
     if (cachedAnalysis) {
@@ -96,12 +102,17 @@ async function run() {
         username: username,
       });
 
+      accountCreatedAt = user.created_at;
+      publicRepos = user.public_repos;
+
       const { data: events } =
         await octokit.rest.activity.listPublicEventsForUser({
           username,
           per_page: 100,
           page: 1,
         });
+
+      userEvents = events as Record<string, unknown>[];
 
       let verified: AutomationListItem[] = [];
 
@@ -172,6 +183,28 @@ async function run() {
     core.setOutput("account-age", analysis.profile.age);
     core.setOutput("username", username);
 
+    let aiAssessment: AIAnalysisResult | null = null;
+    if (aiAnalysisEnabled) {
+      try {
+        aiAssessment = await getAIAnalysis({
+          token,
+          model: aiModel,
+          username,
+          analysis,
+          accountCreatedAt,
+          publicRepos,
+          events: userEvents,
+        });
+        core.setOutput("ai-assessment", JSON.stringify(aiAssessment ?? ""));
+        core.info("AI analysis completed");
+      } catch (error) {
+        core.warning(
+          `AI analysis failed: ${String(error)}. Continuing without AI assessment.`,
+        );
+        core.setOutput("ai-assessment", "");
+      }
+    }
+
     // Skip commenting if analysis is organic and skip-comment-on-organic is enabled
     if (
       skipCommentOnOrganic &&
@@ -203,13 +236,16 @@ async function run() {
 
     try {
       if (core.getInput("agent-scan-comment") === "true") {
+        const aiSection = aiAssessment  ? `\n\n#### 🤖 AI Assessment\n**${aiAssessment.classification}** (${aiAssessment.confidence}% confidence) — ${aiAssessment.reasoning}`
+          : "";
+
         await octokit.rest.issues.createComment({
           owner: context.repo.owner,
           repo: context.repo.repo,
           issue_number: prNumber,
           body: `### ${indicator} ${details.label}
 
-${details.description}
+${details.description}${aiSection}
 
 [View full analysis →](https://agentscan.netlify.app/user/${username})
 

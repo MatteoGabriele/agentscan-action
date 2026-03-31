@@ -22,6 +22,7 @@
   "dependencies": {
     "@actions/core": "^3.0.0",
     "@actions/github": "^9.0.0",
+    "voight-kampff-compactor": "^1.0.0",
     "voight-kampff-test": "^2.5.0"
   }
 }

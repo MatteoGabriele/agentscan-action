@@ -4,6 +4,7 @@ import { rmSync } from "fs";
 vi.mock("@actions/core");
 vi.mock("@actions/github");
 vi.mock("voight-kampff-test");
+vi.mock("./ai");
 
 import * as core from "@actions/core";
 import * as github from "@actions/github";
@@ -11,6 +12,7 @@ import {
   identifyReplicant,
   getClassificationDetails,
 } from "voight-kampff-test";
+import { getAIAnalysis, type AIAnalysisResult } from "./ai";
 import { run } from "./index";
 
 describe("AgentScan Action", () => {
@@ -35,6 +37,9 @@ describe("AgentScan Action", () => {
       "skip-members": "",
       "cache-path": "",
       "skip-comment-on-organic": "false",
+      "agent-scan-comment": "true",
+      "ai-analysis": "false",
+      "ai-model": "openai/gpt-4o-mini",
     };
     const config = { ...defaults, ...overrides };
 
@@ -101,6 +106,7 @@ describe("AgentScan Action", () => {
       label: "Organic Account",
       description: "This account appears to be organic.",
     });
+    vi.mocked(getAIAnalysis).mockResolvedValue(null);
     vi.mocked(core.setOutput).mockImplementation(() => {});
   };
 
@@ -369,6 +375,135 @@ describe("AgentScan Action", () => {
         issue_number: 123,
         labels: ["agentscan:community-flagged"],
       });
+    });
+  });
+
+  describe("AI Analysis - GitHub Models integration", () => {
+    beforeEach(() => {
+      setupContext();
+      setupCommonMocks();
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+    });
+
+    it("should not call AI when ai-analysis is disabled", async () => {
+      setupInputs({ "ai-analysis": "false" });
+
+      await run();
+
+      expect(getAIAnalysis).not.toHaveBeenCalled();
+      expect(core.setOutput).not.toHaveBeenCalledWith(
+        "ai-assessment",
+        expect.anything(),
+      );
+    });
+
+    it("should call AI and set output when ai-analysis is enabled", async () => {
+      setupInputs({ "ai-analysis": "true", "ai-model": "openai/gpt-4o-mini" });
+      const mockResult: AIAnalysisResult = {
+        classification: "organic",
+        confidence: 90,
+        reasoning: "This account appears organic based on the profile data.",
+      };
+      vi.mocked(getAIAnalysis).mockResolvedValue(mockResult);
+
+      await run();
+
+      expect(getAIAnalysis).toHaveBeenCalledWith(
+        expect.objectContaining({
+          token: "test-token",
+          model: "openai/gpt-4o-mini",
+          username: "test-user",
+        }),
+      );
+      expect(core.setOutput).toHaveBeenCalledWith(
+        "ai-assessment",
+        JSON.stringify(mockResult),
+      );
+      expect(core.info).toHaveBeenCalledWith("AI analysis completed");
+    });
+
+    it("should include AI assessment in PR comment", async () => {
+      setupInputs({ "ai-analysis": "true", "agent-scan-comment": "true" });
+      vi.mocked(getAIAnalysis).mockResolvedValue({
+        classification: "organic",
+        confidence: 95,
+        reasoning: "Likely a genuine human user.",
+      });
+
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      const commentCall =
+        mockOctokit.rest.issues.createComment.mock.calls[0][0];
+      expect(commentCall.body).toContain("AI Assessment");
+      expect(commentCall.body).toContain("organic");
+      expect(commentCall.body).toContain("95% confidence");
+      expect(commentCall.body).toContain("Likely a genuine human user.");
+    });
+
+    it("should warn and continue when AI analysis fails", async () => {
+      setupInputs({ "ai-analysis": "true" });
+      vi.mocked(getAIAnalysis).mockRejectedValue(
+        new Error("500 Internal Server Error"),
+      );
+
+      await run();
+
+      expect(core.warning).toHaveBeenCalledWith(
+        expect.stringContaining("AI analysis failed"),
+      );
+      expect(core.setOutput).toHaveBeenCalledWith("ai-assessment", "");
+      expect(core.setOutput).toHaveBeenCalledWith("classification", "organic");
+    });
+
+    it("should use custom AI model from input", async () => {
+      setupInputs({
+        "ai-analysis": "true",
+        "ai-model": "mistral-ai/ministral-3b",
+      });
+      vi.mocked(getAIAnalysis).mockResolvedValue({
+        classification: "organic",
+        confidence: 80,
+        reasoning: "Assessment result.",
+      });
+
+      await run();
+
+      expect(getAIAnalysis).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: "mistral-ai/ministral-3b",
+        }),
+      );
+    });
+
+    it("should pass events to AI analysis", async () => {
+      setupInputs({ "ai-analysis": "true" });
+      vi.mocked(github.getOctokit).mockReturnValue(
+        createMockOctokit({
+          activity: {
+            listPublicEventsForUser: vi.fn().mockResolvedValue({
+              data: [
+                { type: "PushEvent", created_at: "2024-03-01T00:00:00Z", repo: { name: "user/repo" } },
+              ],
+            }),
+          },
+        }) as any,
+      );
+      vi.mocked(getAIAnalysis).mockResolvedValue({
+        classification: "organic",
+        confidence: 75,
+        reasoning: "Assessment.",
+      });
+
+      await run();
+
+      expect(getAIAnalysis).toHaveBeenCalledWith(
+        expect.objectContaining({
+          events: [
+            { type: "PushEvent", created_at: "2024-03-01T00:00:00Z", repo: { name: "user/repo" } },
+          ],
+        }),
+      );
     });
   });
 });

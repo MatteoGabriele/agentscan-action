@@ -39,6 +39,8 @@ The action will run automatically on new and reopened pull requests, analyzing t
 - **agent-scan-comment** (optional): Enable/disable posting comments on PRs (default: true). Set to false if you only want to use the outputs
 - **cache-path** (optional): Path to cache directory for storing analysis results (e.g., `.agentscan-cache`). When provided, analysis results are cached and reused within the TTL period
 - **skip-comment-on-organic** (optional): Skip posting PR comment if analysis result is "organic" (default: false)
+- **ai-analysis** (optional): Enable AI-powered analysis using GitHub Models to assess if the user is automated (default: false). Requires `models: read` permission in your workflow
+- **ai-model** (optional): The GitHub Models model to use for AI analysis (default: `openai/gpt-4o-mini`)
 
 ### Skip Members
 
@@ -111,6 +113,41 @@ To disable all PR comments and only use the action's outputs, set `agent-scan-co
 ```
 
 This is useful if you want to use the analysis outputs in downstream steps without posting comments.
+
+### AI Analysis
+
+Enable AI-powered analysis using [GitHub Models](https://docs.github.com/en/github-models) to get an AI assessment of whether the user appears automated. This uses the GitHub Models inference API and requires the `models: read` permission.
+
+```yaml
+name: AgentScan
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+  models: read
+
+jobs:
+  agentscan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: AgentScan
+        uses: MatteoGabriele/agentscan-action@v1.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          ai-analysis: true
+          ai-model: "openai/gpt-4o-mini"  # optional, this is the default
+```
+
+When enabled, the AI assessment is:
+- Included in the PR comment under an **AI Assessment** section
+- Available via the `ai-assessment` output for use in downstream steps
+
+The AI analysis is non-blocking — if the request fails, the action warns and continues with the heuristic-only analysis.
 
 ## Testing
 

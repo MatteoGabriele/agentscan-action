@@ -21,6 +21,14 @@ inputs:
     description: "Path to cache directory (e.g., '.agentscan-cache') - if provided, analysis results will be cached"
     required: false
     default: ""
+  ai-analysis:
+    description: "Enable AI-powered analysis using GitHub Models to assess if the user is automated. Requires 'models: read' permission in your workflow."
+    required: false
+    default: "false"
+  ai-model:
+    description: "The GitHub Models model to use for AI analysis (e.g., 'openai/gpt-4o-mini', 'mistral-ai/ministral-3b')"
+    required: false
+    default: "openai/gpt-4o-mini"
 outputs:
   flagged:
     description: "Whether the account was flagged"
@@ -36,6 +44,8 @@ outputs:
     description: "Account age in days"
   username:
     description: "The GitHub username that was analyzed"
+  ai-assessment:
+    description: "JSON object with AI classification, confidence (0-100), and reasoning (only when ai-analysis is enabled)"
 branding:
   icon: "activity"
   color: "white"
