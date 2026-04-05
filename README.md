@@ -35,7 +35,7 @@ The action will run automatically on new and reopened pull requests, analyzing t
 ### Inputs
 
 - **github-token** (required): GitHub token for API access
-- **skip-members** (optional): Comma-separated list of usernames to skip from scanning
+- **skip-members** (optional): YAML list of usernames to skip from scanning
 - **agent-scan-comment** (optional): Enable/disable posting comments on PRs (default: true). Set to false if you only want to use the outputs
 - **cache-path** (optional): Path to cache directory for storing analysis results (e.g., `.agentscan-cache`). When provided, analysis results are cached and reused within the TTL period
 - **skip-comment-on-organic** (optional): Skip posting PR comment if analysis result is "organic" (default: false)
@@ -49,7 +49,10 @@ To skip specific team members from being scanned, add their usernames to the `sk
   uses: MatteoGabriele/agentscan-action@v1.0.1
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
-    skip-members: "dependabot,renovate,my-trusted-bot"
+    skip-members: |
+      - dependabot
+      - renovate
+      - my-trusted-bot
 ```
 
 Members in the skip list will be excluded from analysis without any PR comment or labels added.

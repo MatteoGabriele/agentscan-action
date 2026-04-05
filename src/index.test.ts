@@ -33,6 +33,7 @@ describe("AgentScan Action", () => {
     const defaults: Record<string, string> = {
       "github-token": "test-token",
       "skip-members": "",
+      "agent-scan-comment": "true",
       "cache-path": "",
       report: "true",
     };
@@ -242,8 +243,8 @@ describe("AgentScan Action", () => {
       setupContext();
     });
 
-    it("should skip analysis for member in skip list", async () => {
-      setupInputs({ "skip-members": "test-user,other-user" });
+    it("should skip analysis for member in YAML list", async () => {
+      setupInputs({ "skip-members": "- test-user\n- other-user" });
 
       await run();
 
@@ -255,8 +256,8 @@ describe("AgentScan Action", () => {
       expect(core.setOutput).not.toHaveBeenCalled();
     });
 
-    it("should analyze member not in skip list", async () => {
-      setupInputs({ "skip-members": "other-user,another-user" });
+    it("should analyze member not in YAML skip list", async () => {
+      setupInputs({ "skip-members": "- other-user\n- another-user" });
       setupCommonMocks();
       vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
 
@@ -264,6 +265,40 @@ describe("AgentScan Action", () => {
 
       expect(identifyReplicant).toHaveBeenCalled();
       expect(core.setOutput).toHaveBeenCalledWith("username", "test-user");
+    });
+
+    it("should ignore comma-separated format", async () => {
+      setupInputs({ "skip-members": "test-user,other-user" });
+      setupCommonMocks();
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+
+      await run();
+
+      expect(identifyReplicant).toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith("username", "test-user");
+    });
+
+    it("should ignore JSON array format", async () => {
+      setupInputs({ "skip-members": '["other-user", "test-user"]' });
+      setupCommonMocks();
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+
+      await run();
+
+      expect(identifyReplicant).toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith("username", "test-user");
+    });
+
+    it("should skip analysis for member in dash-prefixed YAML list", async () => {
+      setupInputs({ "skip-members": "- other-user\n- test-user" });
+
+      await run();
+
+      expect(core.info).toHaveBeenCalledWith(
+        expect.stringContaining("Skipping analysis for test-user"),
+      );
+      expect(github.getOctokit).not.toHaveBeenCalled();
+      expect(identifyReplicant).not.toHaveBeenCalled();
     });
   });
 
