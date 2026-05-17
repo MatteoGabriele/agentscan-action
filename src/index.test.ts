@@ -35,6 +35,7 @@ describe("AgentScan Action", () => {
       "skip-members": "",
       "cache-path": "",
       "skip-comment-on-organic": "false",
+      "agent-scan-comment": "true",
     };
     const config = { ...defaults, ...overrides };
 
@@ -264,6 +265,145 @@ describe("AgentScan Action", () => {
 
       expect(identifyReplicant).toHaveBeenCalled();
       expect(core.setOutput).toHaveBeenCalledWith("username", "test-user");
+    });
+  });
+
+  describe("Issue Scanning - Triggered by issue events, no PR", () => {
+    beforeEach(() => {
+      setupInputs();
+      setupCommonMocks();
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+    });
+
+    it("should scan issue author when triggered by an issue event with no PR", async () => {
+      const issueContext = {
+        actor: "issue-user",
+        payload: { issue: { number: 456 } },
+        repo: { owner: "test-owner", repo: "test-repo" },
+      };
+      Object.defineProperty(github, "context", {
+        value: issueContext,
+        configurable: true,
+      });
+
+      await run();
+
+      expect(github.getOctokit).toHaveBeenCalledWith("test-token");
+      expect(identifyReplicant).toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith("classification", "organic");
+      expect(core.setOutput).toHaveBeenCalledWith("username", "issue-user");
+    });
+
+    it("should post comment on issue with analysis results", async () => {
+      const issueContext = {
+        actor: "issue-user",
+        payload: { issue: { number: 456 } },
+        repo: { owner: "test-owner", repo: "test-repo" },
+      };
+      Object.defineProperty(github, "context", {
+        value: issueContext,
+        configurable: true,
+      });
+
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.createComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          owner: "test-owner",
+          repo: "test-repo",
+          issue_number: 456,
+        }),
+      );
+    });
+
+    it("should add labels to the issue when flagged", async () => {
+      const issueContext = {
+        actor: "flagged-user",
+        payload: { issue: { number: 789 } },
+        repo: { owner: "test-owner", repo: "test-repo" },
+      };
+      Object.defineProperty(github, "context", {
+        value: issueContext,
+        configurable: true,
+      });
+
+      vi.mocked(identifyReplicant).mockReturnValue({
+        ...mockAnalysis,
+        classification: "automation",
+      });
+
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.addLabels).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        issue_number: 789,
+        labels: ["agentscan:automated-account"],
+      });
+    });
+
+    it("should throw error when neither PR nor issue number is found", async () => {
+      const noEventContext = {
+        actor: "no-number-user",
+        payload: {},
+        repo: { owner: "test-owner", repo: "test-repo" },
+      };
+      Object.defineProperty(github, "context", {
+        value: noEventContext,
+        configurable: true,
+      });
+
+      await run();
+
+      expect(core.setFailed).toHaveBeenCalledWith(
+        expect.stringContaining("No PR or issue number found"),
+      );
+    });
+
+    it("should prefer PR number when both PR and issue exist in payload", async () => {
+      const bothContext = {
+        actor: "both-user",
+        payload: {
+          pull_request: { number: 123 },
+          issue: { number: 456 },
+        },
+        repo: { owner: "test-owner", repo: "test-repo" },
+      };
+      Object.defineProperty(github, "context", {
+        value: bothContext,
+        configurable: true,
+      });
+
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.createComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issue_number: 123,
+        }),
+      );
+    });
+
+    it("should handle skip-members for issue events", async () => {
+      const issueContext = {
+        actor: "skip-me",
+        payload: { issue: { number: 999 } },
+        repo: { owner: "test-owner", repo: "test-repo" },
+      };
+      Object.defineProperty(github, "context", {
+        value: issueContext,
+        configurable: true,
+      });
+      setupInputs({ "skip-members": "skip-me" });
+
+      await run();
+
+      expect(core.info).toHaveBeenCalledWith(
+        expect.stringContaining("Skipping analysis for skip-me"),
+      );
+      expect(github.getOctokit).not.toHaveBeenCalled();
     });
   });
 

@@ -14,7 +14,7 @@ inputs:
     required: false
     default: "true"
   skip-comment-on-organic:
-    description: "Skip posting comment on PR if analysis result is 'organic'"
+    description: "Skip posting comment on PR or issue if analysis result is 'organic'"
     required: false
     default: "false"
   cache-path:

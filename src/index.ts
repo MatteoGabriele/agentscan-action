@@ -41,9 +41,11 @@ async function run() {
     const context = github.context;
     const username = context.actor;
     const prNumber = context.payload.pull_request?.number;
+    const issueNumber = context.payload.issue?.number;
+    const targetNumber = prNumber ?? issueNumber;
 
-    if (!prNumber) {
-      throw new Error("No PR number found");
+    if (!targetNumber) {
+      throw new Error("No PR or issue number found");
     }
 
     if (skipMembers.includes(username)) {
@@ -178,8 +180,9 @@ async function run() {
       !hasCommunityFlag &&
       analysis.classification === "organic"
     ) {
+      const skipEventType = prNumber ? "PR" : "issue";
       core.info(
-        "Skipping comment on PR as analysis returned 'organic' and skip-comment-on-organic is enabled",
+        `Skipping comment on ${skipEventType} as analysis returned 'organic' and skip-comment-on-organic is enabled`,
       );
       return;
     }
@@ -206,7 +209,7 @@ async function run() {
         await octokit.rest.issues.createComment({
           owner: context.repo.owner,
           repo: context.repo.repo,
-          issue_number: prNumber,
+          issue_number: targetNumber,
           body: `### ${indicator} ${details.label}
 
 ${details.description}
@@ -240,17 +243,19 @@ ${details.description}
         await octokit.rest.issues.addLabels({
           owner: context.repo.owner,
           repo: context.repo.repo,
-          issue_number: prNumber,
+          issue_number: targetNumber,
           labels: labelsToAdd,
         });
       }
 
-      core.info(`Comment posted on PR #${prNumber}`);
+      const postEventType = prNumber ? "PR" : "issue";
+      core.info(`Comment posted on ${postEventType} #${targetNumber}`);
     } catch (commentError: unknown) {
       if (commentError instanceof Error) {
         if (commentError.message.includes("Resource not accessible")) {
+          const warnEventType = prNumber ? "PR" : "issue";
           core.warning(
-            "Could not post comment on this PR. Analysis completed but comment/labels skipped.",
+            `Could not post comment on this ${warnEventType}. Analysis completed but comment/labels skipped.`,
           );
         } else {
           throw commentError;
