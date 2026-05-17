@@ -20166,11 +20166,14 @@ async function run() {
 			isFlagged = cachedAnalysis.isFlagged || false;
 		} else {
 			const { data: user } = await octokit.rest.users.getByUsername({ username });
-			const { data: events } = await octokit.rest.activity.listPublicEventsForUser({
-				username,
-				per_page: 100,
-				page: 1
+			const pageRequests = Array.from({ length: 2 }, (_, index) => {
+				return octokit.rest.activity.listPublicEventsForUser({
+					username,
+					per_page: 100,
+					page: index + 1
+				});
 			});
+			const events = (await Promise.all(pageRequests)).flatMap((response) => response.data);
 			let verified = [];
 			try {
 				const { data: verifiedList } = await octokit.rest.repos.getContent({
@@ -20182,7 +20185,7 @@ async function run() {
 					const content = Buffer.from(verifiedList.content, "base64").toString("utf-8");
 					verified = JSON.parse(content);
 				}
-			} catch (error) {
+			} catch {
 				warning("Could not fetch verified automations list");
 			}
 			hasCommunityFlag = !!verified.find((account) => account.username === username);

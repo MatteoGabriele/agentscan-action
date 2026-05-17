@@ -150,6 +150,32 @@ describe("AgentScan Action", () => {
       expect(cacheData).toHaveProperty("timestamp");
       expect(typeof cacheData.timestamp).toBe("number");
     });
+
+    it("should fetch 2 pages with 100 items per page", async () => {
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+
+      expect(
+        mockOctokit.rest.activity.listPublicEventsForUser,
+      ).toHaveBeenNthCalledWith(1, {
+        username: "test-user",
+        per_page: 100,
+        page: 1,
+      });
+
+      expect(
+        mockOctokit.rest.activity.listPublicEventsForUser,
+      ).toHaveBeenNthCalledWith(2, {
+        username: "test-user",
+        per_page: 100,
+        page: 2,
+      });
+
+      expect(
+        mockOctokit.rest.activity.listPublicEventsForUser,
+      ).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe("Cached Flow - Cache exists and is used", () => {

@@ -98,12 +98,16 @@ async function run() {
         username: username,
       });
 
-      const { data: events } =
-        await octokit.rest.activity.listPublicEventsForUser({
+      const pageRequests = Array.from({ length: 2 }, (_, index) => {
+        return octokit.rest.activity.listPublicEventsForUser({
           username,
           per_page: 100,
-          page: 1,
+          page: index + 1,
         });
+      });
+
+      const responses = await Promise.all(pageRequests);
+      const events = responses.flatMap((response) => response.data);
 
       let verified: AutomationListItem[] = [];
 
@@ -120,7 +124,7 @@ async function run() {
           );
           verified = JSON.parse(content) as AutomationListItem[];
         }
-      } catch (error) {
+      } catch {
         core.warning("Could not fetch verified automations list");
       }
 
