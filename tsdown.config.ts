@@ -2,6 +2,6 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig({
   deps: {
-    alwaysBundle: ["@actions/github", "@actions/core", "voight-kampff-test"],
+    alwaysBundle: ["@actions/github", "@actions/core", "@unveil/identity"],
   },
 });
