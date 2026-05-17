@@ -4,11 +4,11 @@ import * as fs from "fs";
 import * as path from "path";
 
 import {
-  identifyReplicant,
+  identify,
   getClassificationDetails,
-  type IdentifyReplicantResult,
+  type IdentifyResult,
   type IdentityClassification,
-} from "voight-kampff-test";
+} from "@unveil/identity";
 
 type AutomationListItem = {
   username: string;
@@ -18,7 +18,7 @@ type AutomationListItem = {
 };
 
 type CacheEntry = {
-  analysis: IdentifyReplicantResult;
+  analysis: IdentifyResult;
   hasCommunityFlag: boolean;
   isFlagged: boolean;
   timestamp: number;
@@ -84,13 +84,13 @@ async function run() {
     }
 
     let hasCommunityFlag = false;
-    let analysis: IdentifyReplicantResult | null = null;
+    let analysis: IdentifyResult | null = null;
     let isFlagged = false;
 
     // Use cached analysis if available, otherwise make API calls
     if (cachedAnalysis) {
       // Use cached analysis
-      analysis = cachedAnalysis.analysis as IdentifyReplicantResult;
+      analysis = cachedAnalysis.analysis as IdentifyResult;
       hasCommunityFlag = (cachedAnalysis.hasCommunityFlag as boolean) || false;
       isFlagged = (cachedAnalysis.isFlagged as boolean) || false;
     } else {
@@ -130,7 +130,7 @@ async function run() {
 
       hasCommunityFlag = !!verifiedAutomation;
 
-      analysis = identifyReplicant({
+      analysis = identify({
         accountName: username,
         reposCount: user.public_repos,
         createdAt: user.created_at,
@@ -198,10 +198,10 @@ async function run() {
       : statusIndicators[analysis.classification];
     const details = hasCommunityFlag
       ? {
-        label: "Flagged by community",
-        description:
-          "This account has been flagged as potentially automated by the community.",
-      }
+          label: "Flagged by community",
+          description:
+            "This account has been flagged as potentially automated by the community.",
+        }
       : getClassificationDetails(analysis.classification);
 
     try {

@@ -1,16 +1,13 @@
-import type { IdentifyReplicantResult } from "voight-kampff-test";
+import type { IdentifyResult } from "@unveil/identity";
 import { rmSync } from "fs";
 
 vi.mock("@actions/core");
 vi.mock("@actions/github");
-vi.mock("voight-kampff-test");
+vi.mock("@unveil/identity");
 
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-import {
-  identifyReplicant,
-  getClassificationDetails,
-} from "voight-kampff-test";
+import { identify, getClassificationDetails } from "@unveil/identity";
 import { run } from "./index";
 
 describe("AgentScan Action", () => {
@@ -21,7 +18,7 @@ describe("AgentScan Action", () => {
     repo: { owner: "test-owner", repo: "test-repo" },
   };
 
-  const mockAnalysis: IdentifyReplicantResult = {
+  const mockAnalysis: IdentifyResult = {
     classification: "organic",
     score: 20,
     flags: [{ label: "Test Flag", points: 10, detail: "This is a test flag" }],
@@ -97,7 +94,7 @@ describe("AgentScan Action", () => {
   };
 
   const setupCommonMocks = () => {
-    vi.mocked(identifyReplicant).mockReturnValue(mockAnalysis);
+    vi.mocked(identify).mockReturnValue(mockAnalysis);
     vi.mocked(getClassificationDetails).mockReturnValue({
       label: "Organic Account",
       description: "This account appears to be organic.",
@@ -130,7 +127,7 @@ describe("AgentScan Action", () => {
       await run();
 
       expect(github.getOctokit).toHaveBeenCalledWith("test-token");
-      expect(identifyReplicant).toHaveBeenCalled();
+      expect(identify).toHaveBeenCalled();
       expect(core.setOutput).toHaveBeenCalledWith("classification", "organic");
       expect(core.setOutput).toHaveBeenCalledWith("username", "test-user");
 
@@ -252,7 +249,7 @@ describe("AgentScan Action", () => {
         expect.stringContaining("Skipping analysis for test-user"),
       );
       expect(github.getOctokit).not.toHaveBeenCalled();
-      expect(identifyReplicant).not.toHaveBeenCalled();
+      expect(identify).not.toHaveBeenCalled();
       expect(core.setOutput).not.toHaveBeenCalled();
     });
 
@@ -263,7 +260,7 @@ describe("AgentScan Action", () => {
 
       await run();
 
-      expect(identifyReplicant).toHaveBeenCalled();
+      expect(identify).toHaveBeenCalled();
       expect(core.setOutput).toHaveBeenCalledWith("username", "test-user");
     });
   });
@@ -289,7 +286,7 @@ describe("AgentScan Action", () => {
       await run();
 
       expect(github.getOctokit).toHaveBeenCalledWith("test-token");
-      expect(identifyReplicant).toHaveBeenCalled();
+      expect(identify).toHaveBeenCalled();
       expect(core.setOutput).toHaveBeenCalledWith("classification", "organic");
       expect(core.setOutput).toHaveBeenCalledWith("username", "issue-user");
     });
@@ -328,7 +325,7 @@ describe("AgentScan Action", () => {
         configurable: true,
       });
 
-      vi.mocked(identifyReplicant).mockReturnValue({
+      vi.mocked(identify).mockReturnValue({
         ...mockAnalysis,
         classification: "automation",
       });
@@ -415,7 +412,7 @@ describe("AgentScan Action", () => {
     });
 
     it("should not add labels for organic classification", async () => {
-      vi.mocked(identifyReplicant).mockReturnValue({
+      vi.mocked(identify).mockReturnValue({
         ...mockAnalysis,
         classification: "organic",
       });
@@ -428,7 +425,7 @@ describe("AgentScan Action", () => {
     });
 
     it("should add mixed-signals label for mixed classification", async () => {
-      vi.mocked(identifyReplicant).mockReturnValue({
+      vi.mocked(identify).mockReturnValue({
         ...mockAnalysis,
         classification: "mixed",
       });
@@ -450,7 +447,7 @@ describe("AgentScan Action", () => {
     });
 
     it("should add automated-account label for automation classification", async () => {
-      vi.mocked(identifyReplicant).mockReturnValue({
+      vi.mocked(identify).mockReturnValue({
         ...mockAnalysis,
         classification: "automation",
       });
@@ -473,12 +470,12 @@ describe("AgentScan Action", () => {
 
     it("should add community-flagged label for flagged accounts", async () => {
       // Mock verified automation (community-flagged)
-      const flaggedAnalysis: IdentifyReplicantResult = {
+      const flaggedAnalysis: IdentifyResult = {
         ...mockAnalysis,
         classification: "organic",
       };
 
-      vi.mocked(identifyReplicant).mockReturnValue(flaggedAnalysis);
+      vi.mocked(identify).mockReturnValue(flaggedAnalysis);
       vi.mocked(github.getOctokit).mockReturnValue(
         createMockOctokit({
           repos: {
