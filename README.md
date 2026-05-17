@@ -1,6 +1,6 @@
 # AgentScan Action
 
-GitHub action that analyzes PR authors' recent activity patterns to detect automation signals.
+GitHub action that analyzes PR and issue authors' recent activity patterns to detect automation signals.
 
 ## Setup
 
@@ -12,9 +12,12 @@ name: AgentScan
 on:
   pull_request_target:
     types: [opened, reopened]
+  issues:
+    types: [opened]
 
 permissions:
   pull-requests: write
+  issues: write
   contents: read
 
 jobs:
@@ -28,7 +31,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-The action will run automatically on new and reopened pull requests, analyzing the PR author's activity patterns to detect automation signals.
+The action will run automatically on new and reopened pull requests, and on newly opened issues, analyzing the author's activity patterns to detect automation signals.
 
 ## Configuration
 
@@ -36,9 +39,9 @@ The action will run automatically on new and reopened pull requests, analyzing t
 
 - **github-token** (required): GitHub token for API access
 - **skip-members** (optional): Comma-separated list of usernames to skip from scanning
-- **agent-scan-comment** (optional): Enable/disable posting comments on PRs (default: true). Set to false if you only want to use the outputs
+- **agent-scan-comment** (optional): Enable/disable posting comments on PRs and issues (default: true). Set to false if you only want to use the outputs
 - **cache-path** (optional): Path to cache directory for storing analysis results (e.g., `.agentscan-cache`). When provided, analysis results are cached and reused within the TTL period
-- **skip-comment-on-organic** (optional): Skip posting PR comment if analysis result is "organic" (default: false)
+- **skip-comment-on-organic** (optional): Skip posting PR or issue comment if analysis result is "organic" (default: false)
 
 ### Skip Members
 
@@ -86,7 +89,7 @@ steps:
 
 ### Skip Organic Comments
 
-To skip posting a PR comment when the analysis result is "organic" (clean, human-like activity), enable the `skip-comment-on-organic` option:
+To skip posting a PR or issue comment when the analysis result is "organic" (clean, human-like activity), enable the `skip-comment-on-organic` option:
 
 ```yaml
 - name: AgentScan
@@ -96,11 +99,11 @@ To skip posting a PR comment when the analysis result is "organic" (clean, human
     skip-comment-on-organic: true
 ```
 
-When enabled, the action will still output all analysis data (for downstream steps to use) but won't post a comment on the PR if the account is classified as organic.
+When enabled, the action will still output all analysis data (for downstream steps to use) but won't post a comment on the PR or issue if the account is classified as organic.
 
 ### Disable Comments
 
-To disable all PR comments and only use the action's outputs, set `agent-scan-comment` to `false`:
+To disable all PR and issue comments and only use the action's outputs, set `agent-scan-comment` to `false`:
 
 ```yaml
 - name: AgentScan
@@ -124,11 +127,12 @@ Tests cover the following scenarios:
 
 - **Normal Flow**: Analyzes a user without cache, saves result with timestamp
 - **Cached Flow**:
-  - Fresh cache (< 7 days): Uses cached data, skips API calls
-  - Stale cache (≥ 7 days): Invalidates cache, makes fresh API calls
+  - Fresh cache (< 2 days): Uses cached data, skips API calls
+  - Stale cache (≥ 2 days): Invalidates cache, makes fresh API calls
   - Corrupted cache: Falls back to API calls with warning
 - **Skip-Member Flow**: Members in skip list are not analyzed
 - **Label Assignment**: Correct labels added based on classification (organic, mixed, automation, community-flagged)
+- **Issue Scanning**: Analyzes issue authors with the same automation detection pipeline, posts comments and labels on issues
 
 ---
 
