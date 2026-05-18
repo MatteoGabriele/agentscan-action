@@ -6,7 +6,7 @@ inputs:
     description: "GitHub token"
     required: true
   skip-members:
-    description: "Comma-separated list of usernames to skip from scanning"
+    description: "yaml list of usernames to skip from scanning"
     required: false
     default: ""
   report:

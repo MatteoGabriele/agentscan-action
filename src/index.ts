@@ -29,6 +29,28 @@ type Report = "true" | "false" | ReportStatus[] | (string & {});
 
 const CACHE_TTL_DAYS = 2;
 
+function parseSkipMembers(input: string): string[] {
+  const trimmed = input.trim();
+
+  if (!trimmed) {
+    return [];
+  }
+
+  // accept only YAML list entries
+  /**
+   * Example input:
+   * - user1
+   * - user2
+   * - user3
+   */
+  return trimmed
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^-\s+/.test(line))
+    .map((line) => line.replace(/^-\s+/, "").trim())
+    .filter(Boolean);
+}
+
 async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
@@ -40,10 +62,7 @@ async function run() {
     const cacheDir = core.getInput("cache-path", { required: false });
 
     const skipMembersInput = core.getInput("skip-members", { required: false });
-    const skipMembers = skipMembersInput
-      .split(",")
-      .map((m) => m.trim())
-      .filter(Boolean);
+    const skipMembers = parseSkipMembers(skipMembersInput);
 
     const context = github.context;
     const username = context.actor;
