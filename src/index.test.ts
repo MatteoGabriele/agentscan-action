@@ -33,6 +33,9 @@ describe("AgentScan Action", () => {
       "cache-path": "",
       "skip-comment-on-organic": "false",
       "agent-scan-comment": "true",
+      "label-community-flagged": "agentscan:community-flagged",
+      "label-mixed": "agentscan:mixed-signals",
+      "label-automation": "agentscan:automated-account",
     };
     const config = { ...defaults, ...overrides };
 
@@ -465,6 +468,102 @@ describe("AgentScan Action", () => {
         repo: "test-repo",
         issue_number: 123,
         labels: ["agentscan:automated-account"],
+      });
+    });
+
+    it("should use custom labels for mixed and automation classifications", async () => {
+      setupInputs({
+        "label-mixed": "needs-review:automation-signals",
+        "label-automation": "blocked:automated-account",
+      });
+      vi.mocked(identify).mockReturnValue({
+        ...mockAnalysis,
+        classification: "mixed",
+      });
+      vi.mocked(getClassificationDetails).mockReturnValue({
+        label: "Mixed Signals",
+        description: "This account shows mixed signals.",
+      });
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+
+      await run();
+
+      let mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.addLabels).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        issue_number: 123,
+        labels: ["needs-review:automation-signals"],
+      });
+
+      vi.clearAllMocks();
+      setupInputs({
+        "label-mixed": "needs-review:automation-signals",
+        "label-automation": "blocked:automated-account",
+      });
+      setupContext();
+      setupCommonMocks();
+      vi.mocked(identify).mockReturnValue({
+        ...mockAnalysis,
+        classification: "automation",
+      });
+      vi.mocked(getClassificationDetails).mockReturnValue({
+        label: "Automated Account",
+        description: "This account appears to be automated.",
+      });
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+
+      await run();
+
+      mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.addLabels).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        issue_number: 123,
+        labels: ["blocked:automated-account"],
+      });
+    });
+
+    it("should use custom community-flagged label for flagged accounts", async () => {
+      setupInputs({
+        "label-community-flagged": "security:community-flagged",
+      });
+      // Mock verified automation (community-flagged)
+      const flaggedAnalysis: IdentifyResult = {
+        ...mockAnalysis,
+        classification: "organic",
+      };
+
+      vi.mocked(identify).mockReturnValue(flaggedAnalysis);
+      vi.mocked(github.getOctokit).mockReturnValue(
+        createMockOctokit({
+          repos: {
+            getContent: vi.fn().mockResolvedValue({
+              data: {
+                content: Buffer.from(
+                  JSON.stringify([
+                    {
+                      username: "test-user",
+                      reason: "Verified automation bot",
+                      createdAt: "2024-01-01",
+                      issueUrl: "https://example.com",
+                    },
+                  ]),
+                ),
+              },
+            }),
+          },
+        }) as any,
+      );
+
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.addLabels).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        issue_number: 123,
+        labels: ["security:community-flagged"],
       });
     });
 

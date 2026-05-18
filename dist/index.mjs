@@ -20125,6 +20125,9 @@ function y(e) {
 //#endregion
 //#region src/index.ts
 const CACHE_TTL_DAYS = 2;
+function getLabelInput(name, defaultValue) {
+	return getInput(name).trim() || defaultValue;
+}
 async function run() {
 	try {
 		const token = getInput("github-token", { required: true });
@@ -20132,6 +20135,11 @@ async function run() {
 		const skipCommentOnOrganic = getInput("skip-comment-on-organic").toLowerCase() === "true";
 		const cacheDir = getInput("cache-path");
 		const skipMembers = skipMembersInput.split(",").map((m) => m.trim()).filter(Boolean);
+		const labels = {
+			communityFlagged: getLabelInput("label-community-flagged", "agentscan:community-flagged"),
+			mixed: getLabelInput("label-mixed", "agentscan:mixed-signals"),
+			automation: getLabelInput("label-automation", "agentscan:automated-account")
+		};
 		const context$2 = context;
 		const username = context$2.actor;
 		const prNumber = context$2.payload.pull_request?.number;
@@ -20241,11 +20249,11 @@ ${details.description}
 <sub>This is an automated analysis by [AgentScan](https://agentscan.netlify.app)</sub>`
 			});
 			const labelsToAdd = [];
-			if (hasCommunityFlag) labelsToAdd.push("agentscan:community-flagged");
+			if (hasCommunityFlag) labelsToAdd.push(labels.communityFlagged);
 			else if (analysis.classification !== "organic") {
 				const label = {
-					mixed: "agentscan:mixed-signals",
-					automation: "agentscan:automated-account"
+					mixed: labels.mixed,
+					automation: labels.automation
 				}[analysis.classification];
 				if (label) labelsToAdd.push(label);
 			}
