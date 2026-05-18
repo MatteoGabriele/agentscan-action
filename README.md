@@ -42,6 +42,9 @@ The action will run automatically on new and reopened pull requests, and on newl
 - **agent-scan-comment** (optional): Enable/disable posting comments on PRs and issues (default: true). Set to false if you only want to use the outputs
 - **cache-path** (optional): Path to cache directory for storing analysis results (e.g., `.agentscan-cache`). When provided, analysis results are cached and reused within the TTL period
 - **skip-comment-on-organic** (optional): Skip posting PR or issue comment if analysis result is "organic" (default: false)
+- **label-community-flagged** (optional): Label to add when an account is flagged by the community (default: `agentscan:community-flagged`)
+- **label-mixed** (optional): Label to add when an account has mixed automation signals (default: `agentscan:mixed-signals`)
+- **label-automation** (optional): Label to add when an account is classified as automated (default: `agentscan:automated-account`)
 
 ### Skip Members
 
@@ -100,6 +103,20 @@ To skip posting a PR or issue comment when the analysis result is "organic" (cle
 ```
 
 When enabled, the action will still output all analysis data (for downstream steps to use) but won't post a comment on the PR or issue if the account is classified as organic.
+
+### Custom Labels
+
+To customize labels added to PRs and issues, set any of the label inputs:
+
+```yaml
+- name: AgentScan
+  uses: MatteoGabriele/agentscan-action@v1.0.1
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    label-community-flagged: "security:community-flagged"
+    label-mixed: "needs-review:automation-signals"
+    label-automation: "blocked:automated-account"
+```
 
 ### Disable Comments
 

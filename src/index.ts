@@ -26,6 +26,10 @@ type CacheEntry = {
 
 const CACHE_TTL_DAYS = 2;
 
+function getLabelInput(name: string, defaultValue: string): string {
+  return core.getInput(name).trim() || defaultValue;
+}
+
 async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
@@ -37,6 +41,17 @@ async function run() {
       .split(",")
       .map((m) => m.trim())
       .filter(Boolean);
+    const labels = {
+      communityFlagged: getLabelInput(
+        "label-community-flagged",
+        "agentscan:community-flagged",
+      ),
+      mixed: getLabelInput("label-mixed", "agentscan:mixed-signals"),
+      automation: getLabelInput(
+        "label-automation",
+        "agentscan:automated-account",
+      ),
+    };
 
     const context = github.context;
     const username = context.actor;
@@ -227,14 +242,14 @@ ${details.description}
       const labelsToAdd: string[] = [];
 
       if (hasCommunityFlag) {
-        labelsToAdd.push("agentscan:community-flagged");
+        labelsToAdd.push(labels.communityFlagged);
       } else if (analysis.classification !== "organic") {
         const labelMap: Record<
           Exclude<IdentityClassification, "organic">,
           string
         > = {
-          mixed: "agentscan:mixed-signals",
-          automation: "agentscan:automated-account",
+          mixed: labels.mixed,
+          automation: labels.automation,
         };
 
         const label = labelMap[analysis.classification];

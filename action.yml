@@ -21,6 +21,18 @@ inputs:
     description: "Path to cache directory (e.g., '.agentscan-cache') - if provided, analysis results will be cached"
     required: false
     default: ""
+  label-community-flagged:
+    description: "Label to add when an account is flagged by the community"
+    required: false
+    default: "agentscan:community-flagged"
+  label-mixed:
+    description: "Label to add when an account has mixed automation signals"
+    required: false
+    default: "agentscan:mixed-signals"
+  label-automation:
+    description: "Label to add when an account is classified as automated"
+    required: false
+    default: "agentscan:automated-account"
 outputs:
   flagged:
     description: "Whether the account was flagged"
