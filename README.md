@@ -24,9 +24,9 @@ jobs:
   agentscan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: AgentScan
-        uses: MatteoGabriele/agentscan-action@v1.0.1
+        uses: MatteoGabriele/agentscan-action@v1.8.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -52,7 +52,7 @@ To skip specific team members from being scanned, add their usernames to the `sk
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@v1.0.1
+  uses: MatteoGabriele/agentscan-action@v1.8.0
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     skip-members: "dependabot,renovate,my-trusted-bot"
@@ -62,19 +62,19 @@ Members in the skip list will be excluded from analysis without any PR comment o
 
 ### Caching
 
-To enable caching and avoid redundant API calls, use `actions/cache@v4` and pass the cache path to the action:
+To enable caching and avoid redundant API calls, use `actions/cache@v5` and pass the cache path to the action:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v4
+  - uses: actions/checkout@v6
   - name: Cache AgentScan analysis
-    uses: actions/cache@v4
+    uses: actions/cache@v5
     with:
       path: .agentscan-cache
       key: agentscan-cache-${{ github.actor }}
       restore-keys: agentscan-cache-
   - name: AgentScan
-    uses: MatteoGabriele/agentscan-action@v1.0.1
+    uses: MatteoGabriele/agentscan-action@v1.8.0
     with:
       github-token: ${{ secrets.GITHUB_TOKEN }}
       cache-path: ".agentscan-cache"
@@ -82,7 +82,7 @@ steps:
 
 **How caching works:**
 
-1. Set up `actions/cache@v4` with a `path` and unique `key`
+1. Set up `actions/cache@v5` with a `path` and unique `key`
 2. Pass the same path to the action via `cache-path` input
 3. The action stores analysis results in that directory
 4. `actions/cache` persists the directory between workflow runs
@@ -96,7 +96,7 @@ To skip posting a PR or issue comment when the analysis result is "organic" (cle
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@v1.0.1
+  uses: MatteoGabriele/agentscan-action@v1.8.0
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     skip-comment-on-organic: true
@@ -110,7 +110,7 @@ To customize labels added to PRs and issues, set any of the label inputs:
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@v1.0.1
+  uses: MatteoGabriele/agentscan-action@v1.8.0
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     label-community-flagged: "security:community-flagged"
@@ -124,7 +124,7 @@ To disable all PR and issue comments and only use the action's outputs, set `age
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@v1.0.1
+  uses: MatteoGabriele/agentscan-action@v1.8.0
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     agent-scan-comment: false
