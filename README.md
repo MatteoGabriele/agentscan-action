@@ -15,18 +15,17 @@ on:
   issues:
     types: [opened]
 
-permissions:
-  pull-requests: write
-  issues: write
-  contents: read
-
 jobs:
   agentscan:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+      contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: AgentScan
-        uses: MatteoGabriele/agentscan-action@v1.8.0
+        uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -52,7 +51,7 @@ To skip specific team members from being scanned, add their usernames to the `sk
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@v1.8.0
+  uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     skip-members: "dependabot,renovate,my-trusted-bot"
@@ -66,15 +65,15 @@ To enable caching and avoid redundant API calls, use `actions/cache@v5` and pass
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
+  - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
   - name: Cache AgentScan analysis
-    uses: actions/cache@v5
+    uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae
     with:
       path: .agentscan-cache
       key: agentscan-cache-${{ github.actor }}
       restore-keys: agentscan-cache-
   - name: AgentScan
-    uses: MatteoGabriele/agentscan-action@v1.8.0
+    uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
     with:
       github-token: ${{ secrets.GITHUB_TOKEN }}
       cache-path: ".agentscan-cache"
@@ -82,7 +81,7 @@ steps:
 
 **How caching works:**
 
-1. Set up `actions/cache@v5` with a `path` and unique `key`
+1. Set up `actions/cache` with a `path` and unique `key`
 2. Pass the same path to the action via `cache-path` input
 3. The action stores analysis results in that directory
 4. `actions/cache` persists the directory between workflow runs
@@ -96,7 +95,7 @@ To skip posting a PR or issue comment when the analysis result is "organic" (cle
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@v1.8.0
+  uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     skip-comment-on-organic: true
@@ -110,7 +109,7 @@ To customize labels added to PRs and issues, set any of the label inputs:
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@v1.8.0
+  uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     label-community-flagged: "security:community-flagged"
@@ -124,7 +123,7 @@ To disable all PR and issue comments and only use the action's outputs, set `age
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@v1.8.0
+  uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     agent-scan-comment: false
