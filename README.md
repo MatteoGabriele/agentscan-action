@@ -11,9 +11,12 @@ name: AgentScan
 
 on:
   pull_request_target:
-    types: [opened, reopened]
+    types:
+      - opened
+      - reopened
   issues:
-    types: [opened]
+    types:
+      - opened
 
 jobs:
   agentscan:
@@ -23,7 +26,6 @@ jobs:
       issues: write
       contents: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: AgentScan
         uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
         with:
@@ -65,7 +67,6 @@ To enable caching and avoid redundant API calls, use `actions/cache@v5` and pass
 
 ```yaml
 steps:
-  - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
   - name: Cache AgentScan analysis
     uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae
     with:
