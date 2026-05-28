@@ -33,6 +33,8 @@ describe("AgentScan Action", () => {
       "cache-path": "",
       "skip-comment-on-organic": "false",
       "agent-scan-comment": "true",
+      "auto-close": "false",
+      "auto-close-classifications": "automation",
       "label-community-flagged": "agentscan:community-flagged",
       "label-mixed": "agentscan:mixed-signals",
       "label-automation": "agentscan:automated-account",
@@ -67,6 +69,7 @@ describe("AgentScan Action", () => {
       issues: {
         createComment: vi.fn().mockResolvedValue({}),
         addLabels: vi.fn().mockResolvedValue({}),
+        update: vi.fn().mockResolvedValue({}),
       },
     };
 
@@ -631,6 +634,209 @@ describe("AgentScan Action", () => {
         issue_number: 123,
         labels: ["agentscan:community-flagged"],
       });
+    });
+  });
+
+  describe("Auto-Close Feature", () => {
+    beforeEach(() => {
+      setupContext();
+      setupCommonMocks();
+    });
+
+    it("should not close when auto-close is disabled (default)", async () => {
+      setupInputs({ "auto-close": "false" });
+
+      const automationAnalysis: IdentifyResult = {
+        ...mockAnalysis,
+        classification: "automation",
+      };
+      vi.mocked(identify).mockReturnValue(automationAnalysis);
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.update).not.toHaveBeenCalled();
+    });
+
+    it("should close when auto-close is enabled and classification is automation", async () => {
+      setupInputs({
+        "auto-close": "true",
+        "auto-close-classifications": "automation",
+      });
+
+      const automationAnalysis: IdentifyResult = {
+        ...mockAnalysis,
+        classification: "automation",
+      };
+      vi.mocked(identify).mockReturnValue(automationAnalysis);
+
+      const mockOctokit = createMockOctokit({
+        issues: {
+          createComment: vi.fn().mockResolvedValue({}),
+          addLabels: vi.fn().mockResolvedValue({}),
+          update: vi.fn().mockResolvedValue({}),
+        },
+      });
+      vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
+
+      await run();
+
+      expect(mockOctokit.rest.issues.update).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        issue_number: 123,
+        state: "closed",
+        state_reason: "not_planned",
+      });
+    });
+
+    it("should close with comma-separated classifications", async () => {
+      setupInputs({
+        "auto-close": "true",
+        "auto-close-classifications": "automation, mixed",
+      });
+
+      const mixedAnalysis: IdentifyResult = {
+        ...mockAnalysis,
+        classification: "mixed",
+      };
+      vi.mocked(identify).mockReturnValue(mixedAnalysis);
+
+      const mockOctokit = createMockOctokit({
+        issues: {
+          createComment: vi.fn().mockResolvedValue({}),
+          addLabels: vi.fn().mockResolvedValue({}),
+          update: vi.fn().mockResolvedValue({}),
+        },
+      });
+      vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
+
+      await run();
+
+      expect(mockOctokit.rest.issues.update).toHaveBeenCalled();
+    });
+
+    it("should close with JSON array classifications", async () => {
+      setupInputs({
+        "auto-close": "true",
+        "auto-close-classifications": '["automation", "mixed"]',
+      });
+
+      const automationAnalysis: IdentifyResult = {
+        ...mockAnalysis,
+        classification: "automation",
+      };
+      vi.mocked(identify).mockReturnValue(automationAnalysis);
+
+      const mockOctokit = createMockOctokit({
+        issues: {
+          createComment: vi.fn().mockResolvedValue({}),
+          addLabels: vi.fn().mockResolvedValue({}),
+          update: vi.fn().mockResolvedValue({}),
+        },
+      });
+      vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
+
+      await run();
+
+      expect(mockOctokit.rest.issues.update).toHaveBeenCalled();
+    });
+
+    it("should not close when classification doesn't match auto-close list", async () => {
+      setupInputs({
+        "auto-close": "true",
+        "auto-close-classifications": "automation",
+      });
+
+      const mixedAnalysis: IdentifyResult = {
+        ...mockAnalysis,
+        classification: "mixed",
+      };
+      vi.mocked(identify).mockReturnValue(mixedAnalysis);
+
+      const mockOctokit = createMockOctokit({
+        issues: {
+          createComment: vi.fn().mockResolvedValue({}),
+          addLabels: vi.fn().mockResolvedValue({}),
+          update: vi.fn().mockResolvedValue({}),
+        },
+      });
+      vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
+
+      await run();
+
+      expect(mockOctokit.rest.issues.update).not.toHaveBeenCalled();
+    });
+
+    it("should close community-flagged accounts when auto-close is enabled", async () => {
+      setupInputs({
+        "auto-close": "true",
+        "auto-close-classifications": "automation",
+      });
+
+      const mockOctokit = createMockOctokit({
+        repos: {
+          getContent: vi.fn().mockResolvedValue({
+            data: {
+              content: Buffer.from(
+                JSON.stringify([
+                  {
+                    username: "test-user",
+                    reason: "Verified automation",
+                    createdAt: "2024-01-01",
+                    issueUrl: "https://example.com",
+                  },
+                ]),
+              ),
+            },
+          }),
+        },
+        issues: {
+          createComment: vi.fn().mockResolvedValue({}),
+          addLabels: vi.fn().mockResolvedValue({}),
+          update: vi.fn().mockResolvedValue({}),
+        },
+      });
+      vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
+
+      await run();
+
+      expect(mockOctokit.rest.issues.update).toHaveBeenCalledWith({
+        owner: "test-owner",
+        repo: "test-repo",
+        issue_number: 123,
+        state: "closed",
+        state_reason: "not_planned",
+      });
+    });
+  });
+
+  describe("Skip-Members Array Format", () => {
+    beforeEach(() => {
+      setupContext();
+      setupCommonMocks();
+    });
+
+    it("should skip members with JSON array format", async () => {
+      setupInputs({ "skip-members": '["test-user", "other-user"]' });
+
+      await run();
+
+      expect(core.info).toHaveBeenCalledWith(
+        expect.stringContaining("Skipping analysis for test-user"),
+      );
+      expect(identify).not.toHaveBeenCalled();
+    });
+
+    it("should parse and skip multiple members from JSON array", async () => {
+      setupInputs({ "skip-members": '["test-user", "skip-this"]' });
+
+      await run();
+
+      expect(core.info).toHaveBeenCalledWith(
+        expect.stringContaining("Skipping analysis for test-user"),
+      );
     });
   });
 });
