@@ -9,6 +9,7 @@ import {
   type IdentifyResult,
   type IdentityClassification,
 } from "@unveil/identity";
+import { parseStringArray, parseTypedArray } from "./utils";
 
 type AutomationListItem = {
   username: string;
@@ -25,6 +26,7 @@ type CacheEntry = {
 };
 
 const CACHE_TTL_DAYS = 2;
+const DEFAULT_AUTO_CLOSE_CLASSIFICATION: IdentityClassification = "automation";
 
 function getLabelInput(name: string, defaultValue: string): string {
   return core.getInput(name).trim() || defaultValue;
@@ -37,10 +39,19 @@ async function run() {
     const skipCommentOnOrganic =
       core.getInput("skip-comment-on-organic").toLowerCase() === "true";
     const cacheDir = core.getInput("cache-path");
-    const skipMembers = skipMembersInput
-      .split(",")
-      .map((m) => m.trim())
-      .filter(Boolean);
+    const autoClose = core.getInput("auto-close").toLowerCase() === "true";
+    const autoCloseClassificationsInput = core.getInput(
+      "auto-close-classifications",
+    );
+
+    const skipMembers = parseStringArray(skipMembersInput);
+
+    const autoCloseClassifications = parseTypedArray<IdentityClassification>(
+      autoCloseClassificationsInput || DEFAULT_AUTO_CLOSE_CLASSIFICATION,
+      (item): item is IdentityClassification =>
+        ["mixed", "automation"].includes(item),
+    );
+
     const labels = {
       communityFlagged: getLabelInput(
         "label-community-flagged",
@@ -278,6 +289,44 @@ ${details.description}
           );
         } else {
           throw commentError;
+        }
+      }
+    }
+
+    // Auto-close if enabled and classification matches
+    if (autoClose) {
+      const shouldClose =
+        hasCommunityFlag ||
+        autoCloseClassifications.includes(analysis.classification);
+
+      if (shouldClose) {
+        try {
+          await octokit.rest.issues.update({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: targetNumber,
+            state: "closed",
+            state_reason: "not_planned",
+          });
+
+          const closeEventType = prNumber ? "PR" : "issue";
+          const closeReason = hasCommunityFlag
+            ? "community-flagged account"
+            : `${analysis.classification} classification`;
+          core.info(
+            `Closed ${closeEventType} #${targetNumber} (${closeReason})`,
+          );
+        } catch (closeError: unknown) {
+          if (closeError instanceof Error) {
+            if (closeError.message.includes("Resource not accessible")) {
+              const closeEventType = prNumber ? "PR" : "issue";
+              core.warning(
+                `Could not close ${closeEventType}. Analysis completed but close action skipped.`,
+              );
+            } else {
+              throw closeError;
+            }
+          }
         }
       }
     }

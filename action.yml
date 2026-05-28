@@ -6,7 +6,7 @@ inputs:
     description: "GitHub token"
     required: true
   skip-members:
-    description: "Comma-separated list of usernames to skip from scanning"
+    description: "List of usernames to skip from scanning. Can use array syntax in workflow YAML."
     required: false
     default: ""
   agent-scan-comment:
@@ -33,6 +33,14 @@ inputs:
     description: "Label to add when an account is classified as automated"
     required: false
     default: "agentscan:automated-account"
+  auto-close:
+    description: "Whether to automatically close issues/PRs for detected automations"
+    required: false
+    default: "false"
+  auto-close-classifications:
+    description: "Comma-separated list of classifications that trigger auto-close (organic, mixed, automation). Defaults to 'automation'. Can use array syntax in workflow YAML."
+    required: false
+    default: "automation"
 outputs:
   flagged:
     description: "Whether the account was flagged"
