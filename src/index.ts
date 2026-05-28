@@ -26,6 +26,7 @@ type CacheEntry = {
 };
 
 const CACHE_TTL_DAYS = 2;
+const DEFAULT_AUTO_CLOSE_CLASSIFICATION: IdentityClassification = "automation";
 
 function getLabelInput(name: string, defaultValue: string): string {
   return core.getInput(name).trim() || defaultValue;
@@ -46,9 +47,9 @@ async function run() {
     const skipMembers = parseStringArray(skipMembersInput);
 
     const autoCloseClassifications = parseTypedArray<IdentityClassification>(
-      autoCloseClassificationsInput,
+      autoCloseClassificationsInput || DEFAULT_AUTO_CLOSE_CLASSIFICATION,
       (item): item is IdentityClassification =>
-        ["organic", "mixed", "automation"].includes(item),
+        ["mixed", "automation"].includes(item),
     );
 
     const labels = {

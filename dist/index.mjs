@@ -20123,8 +20123,48 @@ function y(e) {
 	};
 }
 //#endregion
+//#region src/utils.ts
+/**
+* Parse input that can be in JSON array format or comma-separated format
+* @param input The input string to parse
+* @returns Array of strings
+*/
+function parseStringArray(input) {
+	if (!input) return [];
+	try {
+		const parsed = JSON.parse(input);
+		if (Array.isArray(parsed)) return parsed.map((item) => String(item).trim()).filter(Boolean);
+		else throw new Error("Not an array");
+	} catch {
+		return input.split(",").map((item) => item.trim()).filter(Boolean);
+	}
+}
+/**
+* Parse input that can be in JSON array format or comma-separated format
+* with a type guard validator
+* @param input The input string to parse
+* @param validator A type guard function to validate each item
+* @returns Array of validated typed items
+*/
+function parseTypedArray(input, validator) {
+	if (!input) return [];
+	const result = [];
+	try {
+		const parsed = JSON.parse(input);
+		if (Array.isArray(parsed)) {
+			const items = parsed.map((item) => String(item).trim()).filter(Boolean);
+			for (const item of items) if (validator(item)) result.push(item);
+		} else throw new Error("Not an array");
+	} catch {
+		const items = input.split(",").map((item) => item.trim()).filter(Boolean);
+		for (const item of items) if (validator(item)) result.push(item);
+	}
+	return result;
+}
+//#endregion
 //#region src/index.ts
 const CACHE_TTL_DAYS = 2;
+const DEFAULT_AUTO_CLOSE_CLASSIFICATION = "automation";
 function getLabelInput(name, defaultValue) {
 	return getInput(name).trim() || defaultValue;
 }
@@ -20134,7 +20174,10 @@ async function run() {
 		const skipMembersInput = getInput("skip-members");
 		const skipCommentOnOrganic = getInput("skip-comment-on-organic").toLowerCase() === "true";
 		const cacheDir = getInput("cache-path");
-		const skipMembers = skipMembersInput.split(",").map((m) => m.trim()).filter(Boolean);
+		const autoClose = getInput("auto-close").toLowerCase() === "true";
+		const autoCloseClassificationsInput = getInput("auto-close-classifications");
+		const skipMembers = parseStringArray(skipMembersInput);
+		const autoCloseClassifications = parseTypedArray(autoCloseClassificationsInput || DEFAULT_AUTO_CLOSE_CLASSIFICATION, (item) => ["mixed", "automation"].includes(item));
 		const labels = {
 			communityFlagged: getLabelInput("label-community-flagged", "agentscan:community-flagged"),
 			mixed: getLabelInput("label-mixed", "agentscan:mixed-signals"),
@@ -20270,6 +20313,21 @@ ${details.description}
 		} catch (commentError) {
 			if (commentError instanceof Error) if (commentError.message.includes("Resource not accessible")) warning(`Could not post comment on this ${prNumber ? "PR" : "issue"}. Analysis completed but comment/labels skipped.`);
 			else throw commentError;
+		}
+		if (autoClose) {
+			if (hasCommunityFlag || autoCloseClassifications.includes(analysis.classification)) try {
+				await octokit.rest.issues.update({
+					owner: context$2.repo.owner,
+					repo: context$2.repo.repo,
+					issue_number: targetNumber,
+					state: "closed",
+					state_reason: "not_planned"
+				});
+				info(`Closed ${prNumber ? "PR" : "issue"} #${targetNumber} (${hasCommunityFlag ? "community-flagged account" : `${analysis.classification} classification`})`);
+			} catch (closeError) {
+				if (closeError instanceof Error) if (closeError.message.includes("Resource not accessible")) warning(`Could not close ${prNumber ? "PR" : "issue"}. Analysis completed but close action skipped.`);
+				else throw closeError;
+			}
 		}
 	} catch (error) {
 		if (error instanceof Error) setFailed(error.message);
