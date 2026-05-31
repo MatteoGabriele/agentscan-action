@@ -14,7 +14,7 @@ describe("AgentScan Action", () => {
   // Shared test data
   const mockContext = {
     actor: "test-user",
-    payload: { pull_request: { number: 123 } },
+    payload: { pull_request: { number: 123, user: { login: "test-user" } } },
     repo: { owner: "test-owner", repo: "test-repo" },
   };
 
@@ -862,7 +862,11 @@ describe("AgentScan Action", () => {
       const mockOctokit = createMockOctokit({
         pulls: {
           list: vi.fn().mockResolvedValue({
-            data: [{ number: 123 }, { number: 124 }, { number: 125 }],
+            data: [
+              { number: 123, user: { login: "test-user" } },
+              { number: 124, user: { login: "test-user" } },
+              { number: 125, user: { login: "test-user" } },
+            ],
           }),
         },
         actions: {
@@ -914,7 +918,10 @@ describe("AgentScan Action", () => {
       const mockOctokit = createMockOctokit({
         pulls: {
           list: vi.fn().mockResolvedValue({
-            data: [{ number: 123 }, { number: 124 }],
+            data: [
+              { number: 123, user: { login: "test-user" } },
+              { number: 124, user: { login: "test-user" } },
+            ],
           }),
         },
         actions: {
@@ -948,7 +955,10 @@ describe("AgentScan Action", () => {
       const mockOctokit = createMockOctokit({
         pulls: {
           list: vi.fn().mockResolvedValue({
-            data: [{ number: 123 }, { number: 124 }],
+            data: [
+              { number: 123, user: { login: "test-user" } },
+              { number: 124, user: { login: "test-user" } },
+            ],
           }),
         },
         actions: {
@@ -982,7 +992,7 @@ describe("AgentScan Action", () => {
       const mockOctokit = createMockOctokit({
         pulls: {
           list: vi.fn().mockResolvedValue({
-            data: [{ number: 124 }],
+            data: [{ number: 124, user: { login: "test-user" } }],
           }),
         },
         actions: {
@@ -1022,9 +1032,9 @@ describe("AgentScan Action", () => {
         pulls: {
           list: vi.fn().mockResolvedValue({
             data: [
-              { number: 123 },
-              { number: 124 },
-              { number: 123 }, // Duplicate to test filtering
+              { number: 123, user: { login: "test-user" } },
+              { number: 124, user: { login: "test-user" } },
+              { number: 123, user: { login: "test-user" } }, // Duplicate to test filtering
             ],
           }),
         },
@@ -1070,7 +1080,7 @@ describe("AgentScan Action", () => {
       const mockOctokit = createMockOctokit({
         pulls: {
           list: vi.fn().mockResolvedValue({
-            data: [{ number: 124 }],
+            data: [{ number: 124, user: { login: "test-user" } }],
           }),
         },
         actions: {
@@ -1111,7 +1121,7 @@ describe("AgentScan Action", () => {
       const mockOctokit = createMockOctokit({
         pulls: {
           list: vi.fn().mockResolvedValue({
-            data: [{ number: 124 }],
+            data: [{ number: 124, user: { login: "test-user" } }],
           }),
         },
         actions: {

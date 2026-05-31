@@ -65,11 +65,11 @@ async function dispatchToSiblingPRs(
       owner: context.repo.owner,
       repo: context.repo.repo,
       state: "open",
-      creator: author,
       per_page: 100,
     });
 
-    const siblingPRs = openPRs
+    const authorPRs = openPRs.filter((pr) => pr.user?.login === author);
+    const siblingPRs = authorPRs
       .map((pr) => pr.number)
       .filter((pr) => pr !== currentPrNumber);
 
@@ -143,7 +143,6 @@ async function run() {
     };
 
     const context = github.context;
-    const username = context.actor;
 
     const prNumber: number | undefined = prNumberInput
       ? parseInt(prNumberInput, 10)
@@ -155,6 +154,28 @@ async function run() {
     if (!targetNumber) {
       throw new Error("No PR or issue number found");
     }
+
+    // Extract username, preferring PR author
+    let username = context.payload.pull_request?.user?.login;
+
+    // If PR author not available in payload, fetch it via API (e.g., when triggered by workflow_dispatch)
+    if (!username && prNumber) {
+      try {
+        const octokit = github.getOctokit(token);
+        const { data: pr } = await octokit.rest.pulls.get({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          pull_number: prNumber,
+        });
+        username = pr.user?.login;
+      } catch (error) {
+        core.warning(
+          `Failed to fetch PR ${prNumber}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+    // Fallback to workflow dispatcher if unable to get PR author
+    username = username || context.actor;
 
     if (skipMembers.includes(username)) {
       core.info(`Skipping analysis for ${username}`);
