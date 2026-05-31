@@ -41,14 +41,6 @@ inputs:
     description: "Comma-separated list of classifications that trigger auto-close (organic, mixed, automation). Defaults to 'automation'. Can use array syntax in workflow YAML."
     required: false
     default: "automation"
-  pr-number:
-    description: "PR number to analyze (for workflow_dispatch support). If not provided, uses the PR from the pull request event."
-    required: false
-    default: ""
-  dispatch-to-siblings:
-    description: "When a PR author is flagged, automatically dispatch the workflow to analyze their other open PRs"
-    required: false
-    default: "false"
 outputs:
   flagged:
     description: "Whether the account was flagged"
