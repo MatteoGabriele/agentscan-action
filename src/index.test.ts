@@ -71,6 +71,12 @@ describe("AgentScan Action", () => {
         addLabels: vi.fn().mockResolvedValue({}),
         update: vi.fn().mockResolvedValue({}),
       },
+      pulls: {
+        list: vi.fn().mockResolvedValue({ data: [] }),
+      },
+      actions: {
+        createWorkflowDispatch: vi.fn().mockResolvedValue({}),
+      },
     };
 
     return {
@@ -80,11 +86,11 @@ describe("AgentScan Action", () => {
           (acc, key) => ({
             ...acc,
             [key]: {
-              ...defaultApis[key as keyof typeof defaultApis],
+              ...(defaultApis[key as keyof typeof defaultApis] || {}),
               ...overrides[key],
             },
           }),
-          defaultApis,
+          {} as Record<string, any>,
         ),
       },
     };
@@ -837,6 +843,307 @@ describe("AgentScan Action", () => {
       expect(core.info).toHaveBeenCalledWith(
         expect.stringContaining("Skipping analysis for test-user"),
       );
+    });
+  });
+
+  describe("Dispatch to Sibling PRs", () => {
+    beforeEach(() => {
+      setupContext();
+      setupCommonMocks();
+      process.env.GITHUB_WORKFLOW_REF =
+        "test-owner/test-repo/.github/workflows/agentscan.yaml@main";
+    });
+
+    afterEach(() => {
+      delete process.env.GITHUB_WORKFLOW_REF;
+    });
+
+    it("should dispatch to sibling PRs when author is flagged", async () => {
+      const mockOctokit = createMockOctokit({
+        pulls: {
+          list: vi.fn().mockResolvedValue({
+            data: [{ number: 123 }, { number: 124 }, { number: 125 }],
+          }),
+        },
+        actions: {
+          createWorkflowDispatch: vi.fn().mockResolvedValue({}),
+        },
+      });
+
+      setupInputs({ "dispatch-to-siblings": "true" });
+      vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
+      vi.mocked(identify).mockReturnValue({
+        ...mockAnalysis,
+        classification: "automation", // Flagged as automation
+      });
+
+      Object.defineProperty(github, "context", {
+        value: {
+          ...mockContext,
+          eventName: "pull_request_target",
+          ref: "main",
+        },
+        configurable: true,
+      });
+
+      await run();
+
+      // Should dispatch to PRs 124 and 125 (not 123, the current PR)
+      expect(
+        mockOctokit.rest.actions.createWorkflowDispatch,
+      ).toHaveBeenCalledTimes(2);
+      expect(
+        mockOctokit.rest.actions.createWorkflowDispatch,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workflow_id: ".github/workflows/agentscan.yaml",
+          inputs: { pr_number: "124" },
+        }),
+      );
+      expect(
+        mockOctokit.rest.actions.createWorkflowDispatch,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workflow_id: ".github/workflows/agentscan.yaml",
+          inputs: { pr_number: "125" },
+        }),
+      );
+    });
+
+    it("should not dispatch when dispatch-to-siblings is disabled", async () => {
+      const mockOctokit = createMockOctokit({
+        pulls: {
+          list: vi.fn().mockResolvedValue({
+            data: [{ number: 123 }, { number: 124 }],
+          }),
+        },
+        actions: {
+          createWorkflowDispatch: vi.fn().mockResolvedValue({}),
+        },
+      });
+
+      setupInputs({ "dispatch-to-siblings": "false" });
+      vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
+      vi.mocked(identify).mockReturnValue({
+        ...mockAnalysis,
+        classification: "automation",
+      });
+
+      Object.defineProperty(github, "context", {
+        value: {
+          ...mockContext,
+          eventName: "pull_request_target",
+        },
+        configurable: true,
+      });
+
+      await run();
+
+      expect(
+        mockOctokit.rest.actions.createWorkflowDispatch,
+      ).not.toHaveBeenCalled();
+    });
+
+    it("should not dispatch when account is organic", async () => {
+      const mockOctokit = createMockOctokit({
+        pulls: {
+          list: vi.fn().mockResolvedValue({
+            data: [{ number: 123 }, { number: 124 }],
+          }),
+        },
+        actions: {
+          createWorkflowDispatch: vi.fn().mockResolvedValue({}),
+        },
+      });
+
+      setupInputs({ "dispatch-to-siblings": "true" });
+      vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
+      vi.mocked(identify).mockReturnValue({
+        ...mockAnalysis,
+        classification: "organic", // Not flagged
+      });
+
+      Object.defineProperty(github, "context", {
+        value: {
+          ...mockContext,
+          eventName: "pull_request_target",
+        },
+        configurable: true,
+      });
+
+      await run();
+
+      expect(
+        mockOctokit.rest.actions.createWorkflowDispatch,
+      ).not.toHaveBeenCalled();
+    });
+
+    it("should not dispatch when triggered by workflow_dispatch", async () => {
+      const mockOctokit = createMockOctokit({
+        pulls: {
+          list: vi.fn().mockResolvedValue({
+            data: [{ number: 124 }],
+          }),
+        },
+        actions: {
+          createWorkflowDispatch: vi.fn().mockResolvedValue({}),
+        },
+      });
+
+      setupInputs({
+        "dispatch-to-siblings": "true",
+        "pr-number": "124",
+      });
+      vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
+      vi.mocked(identify).mockReturnValue({
+        ...mockAnalysis,
+        classification: "automation",
+      });
+
+      Object.defineProperty(github, "context", {
+        value: {
+          actor: "test-user",
+          payload: {}, // No pull_request in payload
+          repo: { owner: "test-owner", repo: "test-repo" },
+          eventName: "workflow_dispatch", // workflow_dispatch event
+        },
+        configurable: true,
+      });
+
+      await run();
+
+      expect(
+        mockOctokit.rest.actions.createWorkflowDispatch,
+      ).not.toHaveBeenCalled();
+    });
+
+    it("should skip current PR when dispatching to siblings", async () => {
+      const mockOctokit = createMockOctokit({
+        pulls: {
+          list: vi.fn().mockResolvedValue({
+            data: [
+              { number: 123 },
+              { number: 124 },
+              { number: 123 }, // Duplicate to test filtering
+            ],
+          }),
+        },
+        actions: {
+          createWorkflowDispatch: vi.fn().mockResolvedValue({}),
+        },
+      });
+
+      setupInputs({ "dispatch-to-siblings": "true" });
+      vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
+      vi.mocked(identify).mockReturnValue({
+        ...mockAnalysis,
+        classification: "automation",
+      });
+
+      Object.defineProperty(github, "context", {
+        value: {
+          ...mockContext,
+          eventName: "pull_request_target",
+          ref: "main",
+        },
+        configurable: true,
+      });
+
+      await run();
+
+      // Should only dispatch to PR 124 (not 123, which is the current PR)
+      expect(
+        mockOctokit.rest.actions.createWorkflowDispatch,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        mockOctokit.rest.actions.createWorkflowDispatch,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inputs: { pr_number: "124" },
+        }),
+      );
+    });
+
+    it("should handle missing GITHUB_WORKFLOW_REF gracefully", async () => {
+      delete process.env.GITHUB_WORKFLOW_REF;
+
+      const mockOctokit = createMockOctokit({
+        pulls: {
+          list: vi.fn().mockResolvedValue({
+            data: [{ number: 124 }],
+          }),
+        },
+        actions: {
+          createWorkflowDispatch: vi.fn().mockResolvedValue({}),
+        },
+      });
+
+      setupInputs({ "dispatch-to-siblings": "true" });
+      vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
+      vi.mocked(identify).mockReturnValue({
+        ...mockAnalysis,
+        classification: "automation",
+      });
+
+      Object.defineProperty(github, "context", {
+        value: {
+          ...mockContext,
+          eventName: "pull_request_target",
+        },
+        configurable: true,
+      });
+
+      await run();
+
+      expect(core.warning).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "GITHUB_WORKFLOW_REF not available, skipping sibling PR dispatch",
+        ),
+      );
+      expect(
+        mockOctokit.rest.actions.createWorkflowDispatch,
+      ).not.toHaveBeenCalled();
+    });
+
+    it("should handle malformed GITHUB_WORKFLOW_REF gracefully", async () => {
+      process.env.GITHUB_WORKFLOW_REF = "invalid-format"; // Missing proper structure
+
+      const mockOctokit = createMockOctokit({
+        pulls: {
+          list: vi.fn().mockResolvedValue({
+            data: [{ number: 124 }],
+          }),
+        },
+        actions: {
+          createWorkflowDispatch: vi.fn().mockResolvedValue({}),
+        },
+      });
+
+      setupInputs({ "dispatch-to-siblings": "true" });
+      vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
+      vi.mocked(identify).mockReturnValue({
+        ...mockAnalysis,
+        classification: "automation",
+      });
+
+      Object.defineProperty(github, "context", {
+        value: {
+          ...mockContext,
+          eventName: "pull_request_target",
+        },
+        configurable: true,
+      });
+
+      await run();
+
+      expect(core.warning).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "Could not parse GITHUB_WORKFLOW_REF, skipping sibling PR dispatch",
+        ),
+      );
+      expect(
+        mockOctokit.rest.actions.createWorkflowDispatch,
+      ).not.toHaveBeenCalled();
     });
   });
 });

@@ -32,6 +32,81 @@ function getLabelInput(name: string, defaultValue: string): string {
   return core.getInput(name).trim() || defaultValue;
 }
 
+async function dispatchToSiblingPRs(
+  token: string,
+  author: string,
+  currentPrNumber: number,
+) {
+  try {
+    const octokit = github.getOctokit(token);
+    const context = github.context;
+    const workflowRef = process.env.GITHUB_WORKFLOW_REF;
+
+    if (!workflowRef) {
+      core.warning(
+        "GITHUB_WORKFLOW_REF not available, skipping sibling PR dispatch",
+      );
+      return;
+    }
+
+    // Extract workflow path from GITHUB_WORKFLOW_REF
+    // Format: owner/repo/path/to/workflow.yml@ref
+    const match = workflowRef.match(/^[^/]+\/[^/]+\/(.+)@/);
+    const workflowPath = match?.[1];
+
+    if (!workflowPath) {
+      core.warning(
+        "Could not parse GITHUB_WORKFLOW_REF, skipping sibling PR dispatch",
+      );
+      return;
+    }
+
+    const { data: openPRs } = await octokit.rest.pulls.list({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      state: "open",
+      creator: author,
+      per_page: 100,
+    });
+
+    const siblingPRs = openPRs
+      .map((pr) => pr.number)
+      .filter((pr) => pr !== currentPrNumber);
+
+    if (siblingPRs.length === 0) {
+      core.info("No sibling PRs found");
+      return;
+    }
+
+    core.info(
+      `Found ${siblingPRs.length} sibling PR(s), dispatching workflow...`,
+    );
+
+    for (const prNumber of siblingPRs) {
+      try {
+        core.info(`Dispatching workflow for PR #${prNumber}`);
+        await octokit.rest.actions.createWorkflowDispatch({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          workflow_id: workflowPath,
+          ref: context.ref,
+          inputs: {
+            pr_number: prNumber.toString(),
+          },
+        });
+      } catch (dispatchError) {
+        core.warning(
+          `Failed to dispatch workflow for PR #${prNumber}: ${String(dispatchError)}`,
+        );
+      }
+    }
+  } catch (error) {
+    core.warning(
+      `Error dispatching to sibling PRs: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
 async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
@@ -43,6 +118,9 @@ async function run() {
     const autoCloseClassificationsInput = core.getInput(
       "auto-close-classifications",
     );
+    const prNumberInput = core.getInput("pr-number").trim();
+    const dispatchToSiblings =
+      core.getInput("dispatch-to-siblings").toLowerCase() === "true";
 
     const skipMembers = parseStringArray(skipMembersInput);
 
@@ -66,7 +144,11 @@ async function run() {
 
     const context = github.context;
     const username = context.actor;
-    const prNumber = context.payload.pull_request?.number;
+
+    const prNumber: number | undefined = prNumberInput
+      ? parseInt(prNumberInput, 10)
+      : context.payload.pull_request?.number;
+
     const issueNumber = context.payload.issue?.number;
     const targetNumber = prNumber ?? issueNumber;
 
@@ -194,6 +276,16 @@ async function run() {
           core.warning(`Failed to save cache: ${String(cacheError)}`);
         }
       }
+    }
+
+    // Dispatch to sibling PRs if flagged and dispatch is enabled
+    if (
+      dispatchToSiblings &&
+      isFlagged &&
+      prNumber &&
+      context.eventName === "pull_request_target"
+    ) {
+      await dispatchToSiblingPRs(token, username, prNumber);
     }
 
     core.setOutput("flagged", isFlagged ? "true" : "false");
