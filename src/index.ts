@@ -1,13 +1,12 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-import * as fs from "fs";
-import * as path from "path";
-
 import {
-  identify,
   getClassificationDetails,
   type IdentifyResult,
   type IdentityClassification,
+  identify,
 } from "@unveil/identity";
 import { parseStringArray, parseTypedArray } from "./utils";
 
@@ -25,11 +24,20 @@ type CacheEntry = {
   timestamp: number;
 };
 
+type CustomMessages = Partial<Record<IdentityClassification, string | null>> & {
+  communityFlagged?: string | null;
+};
+
 const CACHE_TTL_DAYS = 2;
 const DEFAULT_AUTO_CLOSE_CLASSIFICATION: IdentityClassification = "automation";
 
 function getLabelInput(name: string, defaultValue: string): string {
   return core.getInput(name).trim() || defaultValue;
+}
+
+function getCustomMessage(name: string): string | null {
+  const message = core.getInput(name).trim();
+  return message || null;
 }
 
 async function run() {
@@ -62,6 +70,13 @@ async function run() {
         "label-automation",
         "agentscan:automated-account",
       ),
+    };
+
+    const customMessages: CustomMessages = {
+      organic: getCustomMessage("message-organic"),
+      mixed: getCustomMessage("message-mixed"),
+      automation: getCustomMessage("message-automation"),
+      communityFlagged: getCustomMessage("message-community-flagged"),
     };
 
     const context = github.context;
@@ -226,6 +241,7 @@ async function run() {
     const indicator = hasCommunityFlag
       ? "🚩"
       : statusIndicators[analysis.classification];
+
     const details = hasCommunityFlag
       ? {
           label: "Flagged by community",
@@ -234,19 +250,31 @@ async function run() {
         }
       : getClassificationDetails(analysis.classification);
 
+    let body = [
+      `### ${indicator} ${details.label}`,
+      "",
+      details.description,
+      "",
+      `[View full analysis →](https://agentscan.tools/user/${username})`,
+      "",
+      "<sub>This is an automated analysis by [AgentScan](https://agentscan.tools)</sub>",
+    ].join("\n");
+
+    const customClassificationMessage = customMessages[analysis.classification];
+
+    if (customMessages.communityFlagged && hasCommunityFlag) {
+      body = customMessages.communityFlagged;
+    } else if (customClassificationMessage) {
+      body = customClassificationMessage;
+    }
+
     try {
       if (core.getInput("agent-scan-comment") === "true") {
         await octokit.rest.issues.createComment({
           owner: context.repo.owner,
           repo: context.repo.repo,
           issue_number: targetNumber,
-          body: `### ${indicator} ${details.label}
-
-${details.description}
-
-[View full analysis →](https://agentscan.netlify.app/user/${username})
-
-<sub>This is an automated analysis by [AgentScan](https://agentscan.netlify.app)</sub>`,
+          body,
         });
       }
 

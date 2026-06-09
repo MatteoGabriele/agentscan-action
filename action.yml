@@ -41,6 +41,22 @@ inputs:
     description: "Comma-separated list of classifications that trigger auto-close (organic, mixed, automation). Defaults to 'automation'. Can use array syntax in workflow YAML."
     required: false
     default: "automation"
+  message-organic:
+    description: "Custom message to display when account is classified as organic. If not provided, default message will be used."
+    required: false
+    default: ""
+  message-mixed:
+    description: "Custom message to display when account has mixed automation signals. If not provided, default message will be used."
+    required: false
+    default: ""
+  message-automation:
+    description: "Custom message to display when account is classified as automated. If not provided, default message will be used."
+    required: false
+    default: ""
+  message-community-flagged:
+    description: "Custom message to display when account is flagged by the community. If not provided, default message will be used."
+    required: false
+    default: ""
 outputs:
   flagged:
     description: "Whether the account was flagged"
