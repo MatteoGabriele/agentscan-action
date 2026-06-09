@@ -264,7 +264,7 @@ async function run() {
 
     if (customMessages.communityFlagged && hasCommunityFlag) {
       body = customMessages.communityFlagged;
-    } else if (customClassificationMessage) {
+    } else if (customClassificationMessage && !hasCommunityFlag) {
       body = customClassificationMessage;
     }
 
