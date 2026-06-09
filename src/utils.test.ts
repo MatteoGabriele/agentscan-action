@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { parseStringArray, parseTypedArray } from "./utils";
 import type { IdentityClassification } from "@unveil/identity";
+import { describe, expect, it } from "vitest";
+import { parseStringArray, parseTypedArray } from "./utils";
 
 describe("parseStringArray", () => {
   it("should parse empty input as empty array", () => {

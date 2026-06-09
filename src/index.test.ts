@@ -1,5 +1,5 @@
+import { rmSync } from "node:fs";
 import type { IdentifyResult } from "@unveil/identity";
-import { rmSync } from "fs";
 
 vi.mock("@actions/core");
 vi.mock("@actions/github");
@@ -7,7 +7,7 @@ vi.mock("@unveil/identity");
 
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-import { identify, getClassificationDetails } from "@unveil/identity";
+import { getClassificationDetails, identify } from "@unveil/identity";
 import { run } from "./index";
 
 describe("AgentScan Action", () => {
