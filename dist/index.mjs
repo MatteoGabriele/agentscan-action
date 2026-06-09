@@ -1,10 +1,11 @@
 import { createRequire } from "node:module";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import * as os$1 from "os";
 import os, { EOL } from "os";
 import * as crypto from "crypto";
-import * as fs from "fs";
+import * as fs$1 from "fs";
 import { constants, existsSync, promises, readFileSync } from "fs";
-import * as path from "path";
 //#region \0rolldown/runtime.js
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -132,8 +133,8 @@ function escapeProperty(s) {
 function issueFileCommand(command, message) {
 	const filePath = process.env[`GITHUB_${command}`];
 	if (!filePath) throw new Error(`Unable to find environment variable for file command ${command}`);
-	if (!fs.existsSync(filePath)) throw new Error(`Missing file at path: ${filePath}`);
-	fs.appendFileSync(filePath, `${toCommandValue(message)}${os$1.EOL}`, { encoding: "utf8" });
+	if (!fs$1.existsSync(filePath)) throw new Error(`Missing file at path: ${filePath}`);
+	fs$1.appendFileSync(filePath, `${toCommandValue(message)}${os$1.EOL}`, { encoding: "utf8" });
 }
 function prepareKeyValueMessage(key, value) {
 	const delimiter = `ghadelimiter_${crypto.randomUUID()}`;
@@ -15931,9 +15932,9 @@ var Summary = class {
 	}
 };
 new Summary();
-const { chmod, copyFile, lstat, mkdir, open, readdir, rename, rm, rmdir, stat, symlink, unlink } = fs.promises;
+const { chmod, copyFile, lstat, mkdir, open, readdir, rename, rm, rmdir, stat, symlink, unlink } = fs$1.promises;
 process.platform;
-fs.constants.O_RDONLY;
+fs$1.constants.O_RDONLY;
 process.platform;
 os.platform();
 os.arch();
@@ -20320,6 +20321,9 @@ const DEFAULT_AUTO_CLOSE_CLASSIFICATION = "automation";
 function getLabelInput(name, defaultValue) {
 	return getInput(name).trim() || defaultValue;
 }
+function getCustomMessage(name) {
+	return getInput(name).trim() || null;
+}
 async function run() {
 	try {
 		const token = getInput("github-token", { required: true });
@@ -20334,6 +20338,12 @@ async function run() {
 			communityFlagged: getLabelInput("label-community-flagged", "agentscan:community-flagged"),
 			mixed: getLabelInput("label-mixed", "agentscan:mixed-signals"),
 			automation: getLabelInput("label-automation", "agentscan:automated-account")
+		};
+		const customMessages = {
+			organic: getCustomMessage("message-organic"),
+			mixed: getCustomMessage("message-mixed"),
+			automation: getCustomMessage("message-automation"),
+			communityFlagged: getCustomMessage("message-community-flagged")
 		};
 		const context$2 = context;
 		const username = context$2.actor;
@@ -20433,18 +20443,24 @@ async function run() {
 			label: "Flagged by community",
 			description: "This account has been flagged as potentially automated by the community."
 		} : l(analysis.classification);
+		let body = [
+			`### ${indicator} ${details.label}`,
+			"",
+			details.description,
+			"",
+			`[View full analysis →](https://agentscan.tools/user/${username})`,
+			"",
+			"<sub>This is an automated analysis by [AgentScan](https://agentscan.tools)</sub>"
+		].join("\n");
+		const customClassificationMessage = customMessages[analysis.classification];
+		if (customMessages.communityFlagged && hasCommunityFlag) body = customMessages.communityFlagged;
+		else if (customClassificationMessage && !hasCommunityFlag) body = customClassificationMessage;
 		try {
 			if (getInput("agent-scan-comment") === "true") await octokit.rest.issues.createComment({
 				owner: context$2.repo.owner,
 				repo: context$2.repo.repo,
 				issue_number: targetNumber,
-				body: `### ${indicator} ${details.label}
-
-${details.description}
-
-[View full analysis →](https://agentscan.netlify.app/user/${username})
-
-<sub>This is an automated analysis by [AgentScan](https://agentscan.netlify.app)</sub>`
+				body
 			});
 			const labelsToAdd = [];
 			if (hasCommunityFlag) labelsToAdd.push(labels.communityFlagged);
