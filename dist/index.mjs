@@ -20443,18 +20443,19 @@ async function run() {
 			label: "Flagged by community",
 			description: "This account has been flagged as potentially automated by the community."
 		} : l(analysis.classification);
-		let body = [
+		const customClassificationMessage = customMessages[analysis.classification];
+		let description = details.description;
+		if (customMessages.communityFlagged && hasCommunityFlag) description = customMessages.communityFlagged;
+		else if (customClassificationMessage && !hasCommunityFlag) description = customClassificationMessage;
+		const body = [
 			`### ${indicator} ${details.label}`,
 			"",
-			details.description,
+			description,
 			"",
 			`[View full analysis →](https://agentscan.tools/user/${username})`,
 			"",
 			"<sub>This is an automated analysis by [AgentScan](https://agentscan.tools)</sub>"
 		].join("\n");
-		const customClassificationMessage = customMessages[analysis.classification];
-		if (customMessages.communityFlagged && hasCommunityFlag) body = customMessages.communityFlagged;
-		else if (customClassificationMessage && !hasCommunityFlag) body = customClassificationMessage;
 		try {
 			if (getInput("agent-scan-comment") === "true") await octokit.rest.issues.createComment({
 				owner: context$2.repo.owner,
