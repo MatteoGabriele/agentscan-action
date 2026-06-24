@@ -19289,7 +19289,7 @@ function getOctokit(token, options, ...additionalPlugins) {
 	return new (GitHub.plugin(...additionalPlugins))(getOctokitOptions(token, options));
 }
 //#endregion
-//#region node_modules/.pnpm/@unveil+identity@1.8.0/node_modules/@unveil/identity/dist/index.mjs
+//#region node_modules/.pnpm/@unveil+identity@1.10.0/node_modules/@unveil/identity/dist/index.mjs
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || e((t = { exports: {} }).exports, t), t.exports), s = (e, i, o, s) => {
 	if (i && typeof i == `object` || typeof i == `function`) for (var c = r(i), l = 0, u = c.length, d; l < u; l++) d = c[l], !a.call(e, d) && d !== o && t(e, d, {
 		get: ((e) => i[e]).bind(null, d),
@@ -19394,6 +19394,7 @@ const u = {
 	HOURLY_ACTIVITY_EXTREME: 100,
 	TIGHT_COMMIT_SECONDS: 600,
 	TIGHT_COMMIT_THRESHOLD: 3,
+	TIGHT_COMMIT_THRESHOLD_GLOBAL: 50,
 	POINTS_TIGHT_BURST: 25,
 	CREATE_EVENTS_MIN: 5,
 	CREATE_BURST_EXTREME: 16,
@@ -19448,6 +19449,17 @@ const u = {
 	WATCH_SPAM_REPOS_EXTREME: 50,
 	POINTS_WATCH_SPAM_HIGH: 20,
 	POINTS_WATCH_SPAM_EXTREME: 35,
+	COMMENT_BEFORE_PR_VERY_FAST_MINUTES: 5,
+	COMMENT_BEFORE_PR_VERY_FAST_MIN_REPOS: 2,
+	POINTS_COMMENT_BEFORE_PR_VERY_FAST: 30,
+	BOUNTY_REPO_MIN_PRS: 2,
+	BOUNTY_REPO_RATIO_HIGH: .75,
+	BOUNTY_REPO_RATIO_LOW: .4,
+	BOUNTY_REPO_MERGE_RATE_CLEAN: .5,
+	BOUNTY_REPO_LABEL_MIN: 3,
+	POINTS_BOUNTY_REPO_LABEL_NO_ENGAGEMENT: 35,
+	BOUNTY_MULTIPLIER_HIGH: 1.3,
+	BOUNTY_MULTIPLIER_LOW: 1.15,
 	AI_COMMIT_MIN_COMMITS: 5,
 	AI_COMMIT_TIERS: [
 		{
@@ -19915,7 +19927,75 @@ function _(e) {
 	}
 	return t;
 }
-function v(e, t) {
+const v = `0106hyh/hammer-and-nail,0106hyh/kickama-manifest-wizard,123a-bcd/nailstorm-bounty-forge-358,123a-bcd/zeroeye,2lll5/TentOfTrials,9904099/hammer-and-nail-bounty,9904099/zeroeye,aLexzzz430/Cognitive-OS,alulaalmi/Apache-APISIX,ANAVHEOBA/PrivacyLayer,Andyyook/zeroeye,aozorayama45/Apache-DolphinScheduler,aozorayama45/Traefik,Arrow-air/website,asyncapi/tck,atharvnaik1/ipaship-audit,auscaster/frantic-board,benglezhenjun/zeroeye,bitcoin-dot-org/Bitcoin.org,bolivian-peru/marketplace-service-template,caydyan/zeroeye,commaai/opendbc,cuentaprueba244w-dotcom/TentOfTrials,cuentaprueba244w-dotcom/zeroeye,Dasharo/dasharo-issues,davontepowlowsk1i/Apache-Pulsar,davontepowlowsk1i/CockroachDB,davontepowlowsk1i/gofiber-fiber,digitaldesignerjazz/atrium-forum,Dipraise1/Engram,dungkimtran3d/Traefik,elnahomenick123/Gitea,elnahomenick123/Vault,eunseobchoi/NIPS26_A_CV2024,FreezingMoon/AncientBeast,hunki1488-a11y/AIgor,illbnm/homelab-stack,INDIGOAZUL/la-tanda-web,jackjin1997/TentOfTrials,jackjin1997/zeroeye,jaxassistant55/TentOfTrials,Jennycruzy/sovereign-genesis,jeromyritchie52/Apache-ZooKeeper,jhosepm352-design/oabp-langchain-tool,juanitahagenes/ClickHouse,kcolbchain/arka,killernova/zeroeye,lakhman108/zeroeye,lily-protocol/lily-backend,lobster-trap/Kickama,lobster-trap/SmartGesture,maitebloger111/Apache-Arrow,manav8498/TentOfTrials,mergeos-bounties/mergeos,midnightntwrk/contributor-hub,moorcheh-ai/memanto,Paratii-Video/paratii-js,Paratii-Video/paratii-mediaplayer,Paratii-Video/paratii-portal,pci-tamper-protect/e-skimming-labs,Peter7896/TentOfTrials,Peter7896/zeroeye,priyanshudumps/fuel-agent-kit,promptpolish-ai/git-context,quachminh11/VictoriaMetrics,relayhop/sn-monetization-runtime,remotion-dev/remotion,renaudgenard/TentOfTrials,renaudgenard/zeroeye,Reqrefusion/FreeCAD-Documentation-Project,rodrickparker11/TiKV,runxhq/runx,Scottcjn/bottube,Scottcjn/Rustchain,Scottcjn/rustchain-bounties,Scottcjn/rustchain-dialup,Scottcjn/vintage-voice,SecureBananaLabs/bug-bounty,shaiananvari8/zeroeye,skndash96/bountic,SnowfallHD/TentOfTrials,SnowfallHD/zeroeye,Soengkit/frailbox-checkpoint,Soengkit/zeroeye,Soengkit/zeroeye-killernova,SolFoundry/solfoundry,SPLURT-Station/S.P.L.U.R.T-tg,tari-project/minotari-cli,tari-project/tari,tari-project/universe,tari-project/wallet-benchmarks,tari-project/wxtm-bridge-frontend,TauCetiStation/TauCetiClassic,tenstorrent/tt-llk,tenstorrent/tt-metal,thanhle74/kickama,thanhle74/TentOfTrials,thaohuynh14zc/GORM,thaohuynh14zc/spf13-cobra,thaohuynh14zc/urfave-cli,Thecesar85/TentOfTrials-bounty-67,vedanshjainvj/Job-Hive,victorjones6awpg/Casbin,warpspeedopen-source/warpspeed-bounties,watney-ai/open-source-bounties,waxeye7/screeps-bounty-arena,weilixiong/TentOfTrials,weilixiong/zeroeye,wulansari999/Kickama-Wulansari-Bounty,xevrion-v2/agent-playground,xxnjms1-code/kickama-prize-lab`.split(`,`), y = new Set(v.map((e) => e.split(`/`)[1]?.toLowerCase()).filter(Boolean)), b = new Set(v.map((e) => e.toLowerCase()));
+function x(e) {
+	let t = e.toLowerCase();
+	if (b.has(t)) return !0;
+	let n = t.split(`/`)[1];
+	return n !== void 0 && y.has(n);
+}
+function S(e) {
+	return e.some((e) => {
+		let t = e.repo?.name;
+		return t ? x(t) : !1;
+	});
+}
+function C(e) {
+	let t = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`);
+	if (t.length < u.BOUNTY_REPO_MIN_PRS) return null;
+	let n = t.filter((e) => {
+		let t = e.repo?.name;
+		return t ? x(t) : !1;
+	});
+	if (n.length === 0) return null;
+	let r = n.length / t.length;
+	if (r < u.BOUNTY_REPO_RATIO_LOW) return null;
+	let i = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `merged` && e.repo?.name && x(e.repo.name)), a = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `closed` && e.repo?.name && x(e.repo.name)), o = i.length + a.length;
+	return o > 0 && i.length / o >= u.BOUNTY_REPO_MERGE_RATE_CLEAN ? null : r >= u.BOUNTY_REPO_RATIO_HIGH ? `high` : `low`;
+}
+function w(e) {
+	let t = e.filter((e) => e.type === `IssuesEvent` && e.payload?.action === `labeled`);
+	return t.length < u.BOUNTY_REPO_LABEL_MIN ? !1 : t.filter((e) => {
+		let t = e.repo?.name;
+		return t ? x(t) : !1;
+	}).length >= u.BOUNTY_REPO_LABEL_MIN;
+}
+function T(e) {
+	let t = C(e);
+	if (!t) return [];
+	let n = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`), r = n.filter((e) => {
+		let t = e.repo?.name;
+		return t ? x(t) : !1;
+	}), i = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `merged` && e.repo?.name && x(e.repo.name)), a = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `closed` && e.repo?.name && x(e.repo.name)), o = r.length / n.length, s = Math.round(o * 100), c = i.length + a.length > 0 ? `${r.length} of ${n.length} opened PRs (${s}%) target known bounty program repositories; ${i.length} merged, ${a.length} closed without merge` : `${r.length} of ${n.length} opened PRs (${s}%) target known bounty program repositories`;
+	return [{
+		label: t === `high` ? `PRs predominantly targeting known bounty program repositories` : `PR activity in known bounty program repositories`,
+		points: 0,
+		amplifiable: !1,
+		detail: c
+	}];
+}
+function E(e) {
+	if (!w(e)) return [];
+	let t = e.filter((e) => e.type === `IssuesEvent` && e.payload?.action === `labeled`).filter((e) => {
+		let t = e.repo?.name;
+		return t ? x(t) : !1;
+	}), n = new Set(t.map((e) => e.repo?.name).filter(Boolean)), r = `${t.length} labeling events across ${n.size} bounty program repositories`;
+	return e.some((e) => {
+		let t = e.repo?.name;
+		return !t || !n.has(t) ? !1 : e.type === `PullRequestEvent` && e.payload?.action === `opened` || e.type === `IssueCommentEvent`;
+	}) ? [{
+		label: `Issue management in known bounty program repositories`,
+		points: 0,
+		amplifiable: !1,
+		detail: r
+	}] : [{
+		label: `Bounty issue cataloging with no follow-up engagement`,
+		points: u.POINTS_BOUNTY_REPO_LABEL_NO_ENGAGEMENT,
+		amplifiable: !0,
+		detail: r
+	}];
+}
+function D(e, t) {
 	let n = [], r = t >= u.AGE_ESTABLISHED_ACCOUNT, i = r ? u.BRANCH_PR_PATTERN_MIN_PAIRS_ESTABLISHED : u.BRANCH_PR_PATTERN_MIN_PAIRS, a = r ? u.BRANCH_PR_PATTERN_RATIO_MIN_ESTABLISHED : u.BRANCH_PR_PATTERN_RATIO_MIN, o = e.filter((e) => e.type === `CreateEvent` && e.payload?.ref_type === `branch`), s = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`);
 	if (o.length >= i && s.length >= i && o.length / s.length >= u.BRANCH_PR_COUNT_RATIO_MIN) {
 		let e = o.map((e) => ({
@@ -19988,7 +20068,7 @@ function v(e, t) {
 	}
 	return n;
 }
-function y(e, t) {
+function O(e, t) {
 	let n = [], r = t >= u.AGE_ESTABLISHED_ACCOUNT ? u.CLOSED_PR_SPAM_MIN_ESTABLISHED : u.CLOSED_PR_SPAM_MIN, i = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `closed` && e.payload?.pull_request?.merged !== !0);
 	if (i.length < r) return n;
 	let a = new Set(i.map((e) => e.repo?.name).filter((e) => e !== void 0)), o = i.map((e) => (0, h.default)(e.created_at)), s = o.reduce((e, t) => t.isBefore(e) ? t : e), c = o.reduce((e, t) => t.isAfter(e) ? t : e), l = c.diff(s, `minute`), d = c.diff(s, `day`), f = c.diff(s, `day`, !0), p = d > 0 ? `${d}d` : `${Math.ceil(l / 60)}h`, m = /* @__PURE__ */ new Map();
@@ -20018,7 +20098,50 @@ function y(e, t) {
 	}
 	return n;
 }
-function b(e) {
+function k(e) {
+	let t = e.filter((e) => e.type === `IssueCommentEvent`), n = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`);
+	if (t.length === 0 || n.length === 0) return [];
+	let r = /* @__PURE__ */ new Map();
+	for (let e of t) {
+		let t = e.repo?.name;
+		t && (r.has(t) || r.set(t, []), r.get(t)?.push((0, h.default)(e.created_at)));
+	}
+	let i = /* @__PURE__ */ new Map();
+	for (let e of n) {
+		let t = e.repo?.name;
+		t && (i.has(t) || i.set(t, []), i.get(t)?.push((0, h.default)(e.created_at)));
+	}
+	let a = /* @__PURE__ */ new Set();
+	for (let [e, t] of r) {
+		let n = i.get(e);
+		if (n) for (let r of t) for (let t of n) {
+			let n = t.diff(r, `minute`, !0);
+			n > 0 && n < u.COMMENT_BEFORE_PR_VERY_FAST_MINUTES && a.add(e);
+		}
+	}
+	if (a.size >= u.COMMENT_BEFORE_PR_VERY_FAST_MIN_REPOS) {
+		let e = A(a, r, i);
+		return [{
+			label: `Issue comment and PR within minutes`,
+			points: u.POINTS_COMMENT_BEFORE_PR_VERY_FAST,
+			amplifiable: !0,
+			detail: `Issue comment and PR to the same repository within ${u.COMMENT_BEFORE_PR_VERY_FAST_MINUTES} minutes, across ${a.size} repositories (shortest gap: ${e}s)`
+		}];
+	}
+	return [];
+}
+function A(e, t, n) {
+	let r = Infinity;
+	for (let i of e) {
+		let e = t.get(i) ?? [], a = n.get(i) ?? [];
+		for (let t of e) for (let e of a) {
+			let n = e.diff(t, `second`, !0);
+			n > 0 && n < r && (r = n);
+		}
+	}
+	return r === Infinity ? 0 : Math.round(r);
+}
+function j(e) {
 	let t = [];
 	if (e.length < u.MIN_EVENTS_FOR_ANALYSIS) return t;
 	let n = e.filter((e) => e.type === `IssueCommentEvent`);
@@ -20086,7 +20209,7 @@ function b(e) {
 	}
 	return t;
 }
-function x(e) {
+function M(e) {
 	if (e.length === 0) return 0;
 	let t = e.reduce((e, t) => e + t, 0);
 	if (t === 0) return 0;
@@ -20097,17 +20220,17 @@ function x(e) {
 	}
 	return n;
 }
-function S(e) {
-	return e.length <= 1 ? 0 : x(e) / Math.log2(e.length);
+function N(e) {
+	return e.length <= 1 ? 0 : M(e) / Math.log2(e.length);
 }
-function C(e) {
+function P(e) {
 	let t = [];
 	if (e.length < u.MIN_EVENTS_FOR_ANALYSIS) return t;
 	let n = /* @__PURE__ */ new Map();
 	e.forEach((e) => {
 		e.type && n.set(e.type, (n.get(e.type) || 0) + 1);
 	});
-	let r = S(Array.from(n.values())), i = new Set(e.map((e) => e.type).filter((e) => e != null)), a = i.has(`IssueCommentEvent`) || i.has(`PullRequestReviewEvent`) || i.has(`PullRequestReviewCommentEvent`), o = i.has(`WatchEvent`);
+	let r = N(Array.from(n.values())), i = new Set(e.map((e) => e.type).filter((e) => e != null)), a = i.has(`IssueCommentEvent`) || i.has(`PullRequestReviewEvent`) || i.has(`PullRequestReviewCommentEvent`), o = i.has(`WatchEvent`);
 	return i.size <= 3 && r < .8 && !a && !o && t.push({
 		label: `Narrow activity focus`,
 		points: u.POINTS_LOW_DIVERSITY,
@@ -20116,7 +20239,7 @@ function C(e) {
 	}), t;
 }
 h.default.extend(p.default), h.default.extend(m.default);
-function w(e) {
+function F(e) {
 	let t = [], n = e.filter((e) => e.type === `ForkEvent`);
 	if (n.length < u.FORKS_HIGH) return t;
 	let r = n.map((e) => (0, h.default)(e.created_at)).sort((e, t) => e.valueOf() - t.valueOf()), i = (e) => {
@@ -20206,7 +20329,7 @@ function w(e) {
 	}
 	return t;
 }
-function T(e) {
+function I(e) {
 	let t = [], n = e.filter((e) => e.type === `ForkEvent`);
 	if (n.length < u.FORK_COMBINED_ACTIVITY_MIN || e.length < u.MIN_EVENTS_FOR_ANALYSIS) return t;
 	let r = new Set(n.map((e) => e.repo?.name).filter((e) => e !== void 0)), i = e.filter((e) => e.type === `CreateEvent` && e.payload?.ref_type === `branch`).filter((e) => r.has(e.repo?.name || ``)), a = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`).filter((e) => r.has(e.repo?.name || ``));
@@ -20225,7 +20348,7 @@ function T(e) {
 	return t;
 }
 h.default.extend(m.default);
-function E(e) {
+function L(e) {
 	let t = [];
 	if (e.length < u.MIN_EVENTS_FOR_ANALYSIS) return t;
 	let n = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`), r = n.map((e) => (0, h.default)(e.created_at)), i = h.default.max(r) || (0, h.default)(), a = i.subtract(1, `day`), o = i.subtract(1, `week`), s = n.filter((e) => (0, h.default)(e.created_at).isAfter(a)), c = n.filter((e) => (0, h.default)(e.created_at).isAfter(o));
@@ -20258,7 +20381,22 @@ function E(e) {
 	}
 	return t;
 }
-function D(e, t) {
+function R(e) {
+	let t = [], n = e.filter((e) => e.type === `PushEvent`).sort((e, t) => (0, h.default)(e.created_at).valueOf() - (0, h.default)(t.created_at).valueOf());
+	if (n.length < u.MIN_EVENTS_FOR_ANALYSIS) return t;
+	let r = 0, i = /* @__PURE__ */ new Set();
+	for (let e = 1; e < n.length; e++) {
+		let t = n[e - 1], a = n[e];
+		!t || !a || t.repo?.name !== a.repo?.name || (0, h.default)(a.created_at).diff((0, h.default)(t.created_at), `second`) <= u.TIGHT_COMMIT_SECONDS && (r++, i.add(e - 1), i.add(e));
+	}
+	return r >= u.TIGHT_COMMIT_THRESHOLD_GLOBAL && t.push({
+		label: `High push frequency`,
+		points: u.POINTS_TIGHT_BURST,
+		amplifiable: !0,
+		detail: `${i.size} pushes to the same repository within very short intervals`
+	}), t;
+}
+function z(e, t) {
 	let n = [], r = t >= u.AGE_ESTABLISHED_ACCOUNT ? u.RAPID_PR_SPAM_MIN_PRS_ESTABLISHED : u.RAPID_PR_SPAM_MIN_PRS, i = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`);
 	if (i.length < r) return n;
 	let a = i.map((e) => ({
@@ -20286,7 +20424,7 @@ function D(e, t) {
 		detail: `${s + 1} PRs opened to ${l} within ${c}s intervals`
 	}), n;
 }
-function O(e) {
+function B(e) {
 	let t = [];
 	if (e.length < u.MIN_EVENTS_FOR_ANALYSIS) return t;
 	let n = e.filter((e) => e.type === `CreateEvent` && e.payload?.ref_type === `repository`);
@@ -20312,7 +20450,7 @@ function O(e) {
 	}
 	return t;
 }
-function k(e) {
+function V(e) {
 	let t = [], n = e.filter((e) => e.type === `WatchEvent`);
 	if (n.length < u.WATCH_SPAM_MIN_EVENTS) return t;
 	let r = n.map((e) => ({
@@ -20340,123 +20478,97 @@ function k(e) {
 	}), t;
 }
 h.default.extend(m.default);
-function A(e, t, n, r) {
+function H(e, t, n, r) {
 	let i = [];
 	if (!n || e.length < u.MIN_EVENTS_FOR_ANALYSIS) return i;
-	let a = r.toLowerCase(), o = e.filter((e) => e.type === `PushEvent`);
+	let a = r.toLowerCase(), o = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`);
 	if (o.length >= u.MIN_EVENTS_FOR_ANALYSIS) {
-		let e = o.map((e) => (0, h.default)(e.created_at)).sort((e, t) => e.valueOf() - t.valueOf()), t = 0, n = 0;
-		for (let r = 0; r < e.length; r++) {
-			let i = e[r];
-			for (; i && i.diff(e[n], `hour`, !0) > 1;) n++;
-			let a = r - n + 1;
-			t = Math.max(t, a);
-		}
-		t >= u.HOURLY_ACTIVITY_EXTREME ? i.push({
-			label: `Extreme commit burst`,
-			points: u.POINTS_EXTREME_ACTIVITY_DENSITY,
-			detail: `${t} commits within 1 hour`
-		}) : t >= u.HOURLY_ACTIVITY_HIGH && i.push({
-			label: `High commit burst`,
-			points: u.POINTS_HIGH_ACTIVITY_DENSITY,
-			detail: `${t} commits within 1 hour`
-		});
-		let r = 0;
-		for (let t = 1; t < e.length; t++) e[t] !== void 0 && e[t - 1] !== void 0 && e[t].diff(e[t - 1], `second`) <= u.TIGHT_COMMIT_SECONDS && r++;
-		r >= u.TIGHT_COMMIT_THRESHOLD && i.push({
-			label: `High commit frequency`,
-			points: u.POINTS_TIGHT_BURST,
-			detail: `${r + 1} commits within very short intervals`
-		});
-	}
-	let s = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`);
-	if (s.length >= u.MIN_EVENTS_FOR_ANALYSIS) {
-		let e = s.map((e) => (0, h.default)(e.created_at)), t = h.default.min(e), n = h.default.max(e);
+		let e = o.map((e) => (0, h.default)(e.created_at)), t = h.default.min(e), n = h.default.max(e);
 		if (n) {
-			let e = Math.max(1, n.diff(t, `day`)), r = s.length / e;
+			let e = Math.max(1, n.diff(t, `day`)), r = o.length / e;
 			r >= u.ACTIVITY_DENSITY_EXTREME / 2 ? i.push({
 				label: `Very high PR volume`,
 				points: u.POINTS_EXTREME_ACTIVITY_DENSITY + 10,
-				detail: `${s.length} PRs in ${e} day${e === 1 ? `` : `s`}`
+				detail: `${o.length} PRs in ${e} day${e === 1 ? `` : `s`}`
 			}) : r >= u.ACTIVITY_DENSITY_HIGH / 2 && i.push({
 				label: `High PR volume`,
 				points: u.POINTS_HIGH_ACTIVITY_DENSITY + 5,
-				detail: `${s.length} PRs in ${e} day${e === 1 ? `` : `s`}`
+				detail: `${o.length} PRs in ${e} day${e === 1 ? `` : `s`}`
 			});
 		}
 	}
-	let c = new Set([`PushEvent`, `PullRequestEvent`]), l = e.filter((e) => e.type && c.has(e.type) || e.type === `PullRequestReviewEvent` || e.type === `PullRequestReviewCommentEvent`), d = /* @__PURE__ */ new Map();
-	l.forEach((e) => {
+	let s = new Set([`PushEvent`, `PullRequestEvent`]), c = e.filter((e) => e.type && s.has(e.type) || e.type === `PullRequestReviewEvent` || e.type === `PullRequestReviewCommentEvent`), l = /* @__PURE__ */ new Map();
+	c.forEach((e) => {
 		if (!e.created_at) return;
 		let t = new Date(e.created_at), n = t.toISOString().slice(0, 10);
-		d.has(n) || d.set(n, []), d.get(n)?.push(t);
+		l.has(n) || l.set(n, []), l.get(n)?.push(t);
 	});
-	let f = [];
-	if (d.forEach((e, t) => {
+	let d = [];
+	if (l.forEach((e, t) => {
 		let n = /* @__PURE__ */ new Map();
 		e.forEach((e) => {
 			let t = e.getUTCHours();
 			n.set(t, (n.get(t) || 0) + 1);
 		});
-		let r = n.size, i = S(Array.from(n.values()));
-		r >= u.HOURS_PER_DAY_INHUMAN && i > .8 && f.push(t);
-	}), f.length >= u.CONSECUTIVE_INHUMAN_DAYS_EXTREME) {
-		f.sort();
+		let r = n.size, i = N(Array.from(n.values()));
+		r >= u.HOURS_PER_DAY_INHUMAN && i > .8 && d.push(t);
+	}), d.length >= u.CONSECUTIVE_INHUMAN_DAYS_EXTREME) {
+		d.sort();
 		let e = 1, t = 1;
-		for (let n = 1; n < f.length; n++) {
-			let r = (0, h.default)(f[n - 1]);
-			(0, h.default)(f[n]).diff(r, `day`) === 1 ? (e++, t = Math.max(t, e)) : e = 1;
+		for (let n = 1; n < d.length; n++) {
+			let r = (0, h.default)(d[n - 1]);
+			(0, h.default)(d[n]).diff(r, `day`) === 1 ? (e++, t = Math.max(t, e)) : e = 1;
 		}
 		t >= u.CONSECUTIVE_INHUMAN_DAYS_EXTREME ? i.push({
 			label: `Extended daily coding`,
 			points: u.POINTS_NONSTOP_ACTIVITY,
 			detail: `${t} days in a row with ${u.HOURS_PER_DAY_INHUMAN}+ hours of coding`
-		}) : f.length >= u.FREQUENT_MARATHON_DAYS && i.push({
+		}) : d.length >= u.FREQUENT_MARATHON_DAYS && i.push({
 			label: `Frequent long coding days`,
 			points: u.POINTS_FREQUENT_MARATHON,
-			detail: `${f.length} days with ${u.HOURS_PER_DAY_INHUMAN}+ hours of coding and uniform hourly distribution`
+			detail: `${d.length} days with ${u.HOURS_PER_DAY_INHUMAN}+ hours of coding and uniform hourly distribution`
 		});
 	}
-	let p = new Set(e.map((e) => e.repo?.name).filter((e) => e ? e.split(`/`)[0]?.toLowerCase() !== a : !1));
-	p.size >= u.REPO_SPREAD_EXTREME ? i.push({
+	let f = new Set(e.map((e) => e.repo?.name).filter((e) => e ? e.split(`/`)[0]?.toLowerCase() !== a : !1));
+	f.size >= u.REPO_SPREAD_EXTREME ? i.push({
 		label: `Highly distributed activity`,
 		points: u.POINTS_EXTREME_REPO_SPREAD_YOUNG,
-		detail: `Activity spread across ${p.size} external repositories`
-	}) : p.size >= u.REPO_SPREAD_HIGH && i.push({
+		detail: `Activity spread across ${f.size} external repositories`
+	}) : f.size >= u.REPO_SPREAD_HIGH && i.push({
 		label: `Distributed activity`,
 		points: u.POINTS_WIDE_REPO_SPREAD_YOUNG,
-		detail: `Activity spread across ${p.size} external repositories`
+		detail: `Activity spread across ${f.size} external repositories`
 	});
-	let m = s.filter((e) => {
+	let p = o.filter((e) => {
 		let t = e.repo?.name?.split(`/`)[0]?.toLowerCase();
 		return t && t !== a;
-	}), g = (0, h.default)(), _ = g.subtract(1, `week`), v = g.subtract(1, `day`), y = m.filter((e) => (0, h.default)(e.created_at).isAfter(_)), b = m.filter((e) => (0, h.default)(e.created_at).isAfter(v));
-	if (b.length >= u.PRS_TODAY_EXTREME ? i.push({
+	}), m = (0, h.default)(), g = m.subtract(1, `week`), _ = m.subtract(1, `day`), v = p.filter((e) => (0, h.default)(e.created_at).isAfter(g)), y = p.filter((e) => (0, h.default)(e.created_at).isAfter(_));
+	if (y.length >= u.PRS_TODAY_EXTREME ? i.push({
 		label: `High PR volume in the past 24 hours`,
 		points: u.POINTS_PR_BURST,
-		detail: `${b.length} PRs to other repos in the last 24 hours`
-	}) : y.length >= u.PRS_WEEK_HIGH && i.push({
+		detail: `${y.length} PRs to other repos in the last 24 hours`
+	}) : v.length >= u.PRS_WEEK_HIGH && i.push({
 		label: `High PR volume during last week`,
 		points: u.POINTS_HIGH_PR_FREQUENCY,
-		detail: `${y.length} PRs to other repos this week`
-	}), m.length >= u.EXTERNAL_PRS_MIN && t < u.PERSONAL_REPOS_LOW) {
-		let e = `${m.length} PRs to other repos, but only ${t} of their own`;
-		t === 0 && (e = `${m.length} PRs to other repos, none of their own`), i.push({
+		detail: `${v.length} PRs to other repos this week`
+	}), p.length >= u.EXTERNAL_PRS_MIN && t < u.PERSONAL_REPOS_LOW) {
+		let e = `${p.length} PRs to other repos, but only ${t} of their own`;
+		t === 0 && (e = `${p.length} PRs to other repos, none of their own`), i.push({
 			label: `Primarily external contributions`,
 			points: u.POINTS_PR_ONLY_CONTRIBUTOR,
 			detail: e
 		});
 	}
-	let x = e.filter((e) => {
+	let b = e.filter((e) => {
 		let t = e.repo?.name?.split(`/`)[0]?.toLowerCase();
 		return t && t !== a;
-	}), C = x.length / e.length;
-	x.length > 0 && C >= u.FOREIGN_RATIO_HIGH && t < u.PERSONAL_REPOS_LOW && i.push({
+	}), x = b.length / e.length;
+	b.length > 0 && x >= u.FOREIGN_RATIO_HIGH && t < u.PERSONAL_REPOS_LOW && i.push({
 		label: `Mostly external activity`,
 		points: u.POINTS_EXTERNAL_FOCUS,
-		detail: `${Math.round(C * 100)}% of activity on other people's repos`
+		detail: `${Math.round(x * 100)}% of activity on other people's repos`
 	});
-	let w = new Set([
+	let S = new Set([
 		`IssuesEvent`,
 		`IssueCommentEvent`,
 		`WatchEvent`,
@@ -20464,14 +20576,14 @@ function A(e, t, n, r) {
 		`PullRequestReviewCommentEvent`,
 		`CommitCommentEvent`
 	]);
-	return !e.some((e) => e.type && w.has(e.type)) && m.length >= 1 && i.push({
+	return !e.some((e) => e.type && S.has(e.type)) && p.length >= 1 && i.push({
 		label: `Limited community engagement`,
 		points: u.POINTS_LIMITED_ENGAGEMENT,
 		amplifiable: !0,
 		detail: `Code contributions to external repos with no observed issue, comment, review, or watch activity`
 	}), i;
 }
-function j(e, t, n) {
+function U(e, t, n) {
 	let r = [];
 	return e === 0 && t.length === n.length && n.length >= u.ZERO_REPOS_MIN_EVENTS && r.push({
 		label: `Only active on other people's repos`,
@@ -20479,7 +20591,7 @@ function j(e, t, n) {
 		detail: `No personal repos, all ${n.length} events are on repos they don't own`
 	}), r;
 }
-const M = [
+const W = [
 	/co-authored-by:.*<[^>]*@anthropic\.com>/i,
 	/co-authored-by:.*<[^>]*copilot@github\.com>/i,
 	/co-authored-by:.*<[^>]*\+copilot@users\.noreply\.github\.com>/i,
@@ -20496,17 +20608,20 @@ const M = [
 	/🤖 generated with/i,
 	/generated by cursor/i
 ];
-function N(e) {
-	return e ? M.some((t) => t.test(e)) : !1;
+function G(e) {
+	return e ? W.some((t) => t.test(e)) : !1;
 }
-function P(e) {
+function K(e) {
+	if (!(e.totalCommits < u.AI_COMMIT_MIN_COMMITS)) return u.AI_COMMIT_TIERS.find((t) => e.ratio >= t.ratio)?.multiplier;
+}
+function q(e) {
 	let t = /* @__PURE__ */ new Set(), n = 0, r = 0;
 	for (let i of e) {
 		if (i.sha) {
 			if (t.has(i.sha)) continue;
 			t.add(i.sha);
 		}
-		n++, N(i.message) && r++;
+		n++, G(i.message) && r++;
 	}
 	let i = n > 0 ? r / n : 0;
 	return {
@@ -20515,7 +20630,11 @@ function P(e) {
 		ratio: i
 	};
 }
-function F(e) {
+function J(e) {
+	let t = C(e), n = w(e);
+	if (!(!t && !n)) return t === `high` ? u.BOUNTY_MULTIPLIER_HIGH : u.BOUNTY_MULTIPLIER_LOW;
+}
+function Y(e) {
 	let t = 0;
 	if (e.length < u.MIN_EVENTS_FOR_ANALYSIS) return t;
 	let n = e.filter((e) => e.type === `IssuesEvent` && e.payload?.action === `opened`);
@@ -20526,7 +20645,7 @@ function F(e) {
 	return t;
 }
 h.default.extend(m.default), h.default.extend(p.default);
-function I({ createdAt: e, reposCount: t, accountName: n, events: r, excludeRepos: i = [], commits: a = [] }) {
+function X({ createdAt: e, reposCount: t, accountName: n, events: r, excludeRepos: i = [], commits: a = [] }) {
 	let o = [], s = i.map((e) => e.toLowerCase()), c = r.filter((e) => {
 		let t = e.repo?.name?.toLowerCase();
 		return t && !s.includes(t);
@@ -20534,20 +20653,23 @@ function I({ createdAt: e, reposCount: t, accountName: n, events: r, excludeRepo
 		let t = e.repo?.name?.split(`/`)[0]?.toLowerCase();
 		return t && t !== n.toLowerCase();
 	}), f = l < u.AGE_YOUNG_ACCOUNT;
-	o.push(...g(l)), o.push(...j(t, d, c)), o.push(...O(c)), o.push(..._(c)), o.push(...C(c)), o.push(...b(c)), o.push(...k(c)), o.push(...v(c, l)), o.push(...D(c, l)), o.push(...y(c, l)), o.push(...w(c)), o.push(...T(c)), o.push(...A(c, t, f, n)), o.push(...E(c));
-	let p = F(c), m = P(a.filter((e) => !e.repo || !s.includes(e.repo.toLowerCase()))), x = m.totalCommits >= u.AI_COMMIT_MIN_COMMITS ? u.AI_COMMIT_TIERS.find((e) => m.ratio >= e.ratio) : void 0, S = o.some((e) => e.amplifiable && e.points > 0);
-	if (x) {
-		let { ratio: e, aiCommits: t, totalCommits: n } = m, r = Math.round(e * 100), i = S ? `${t}/${n} commits (${r}%) AI-attributed — ${x.multiplier}x multiplier applied to automation signals` : `${t}/${n} commits (${r}%) AI-attributed — no automation signals to amplify`;
+	o.push(...g(l)), o.push(...U(t, d, c)), o.push(...B(c)), o.push(..._(c)), o.push(...P(c)), o.push(...j(c)), o.push(...V(c)), o.push(...D(c, l)), o.push(...z(c, l)), o.push(...O(c, l)), o.push(...F(c)), o.push(...I(c)), o.push(...H(c, t, f, n)), o.push(...R(c)), o.push(...L(c)), o.push(...k(c));
+	let p = T(c), m = E(c);
+	o.push(...p), o.push(...m);
+	let v = S(c), y = Y(c), b = q(a.filter((e) => !e.repo || !s.includes(e.repo.toLowerCase()))), x = K(b) ?? 1, C = o.some((e) => e.amplifiable && e.points > 0);
+	if (x > 1) {
+		let { ratio: e, aiCommits: t, totalCommits: n } = b, r = Math.round(e * 100), i = C ? `${t}/${n} commits (${r}%) AI-attributed — ${x}x multiplier applied to automation signals` : `${t}/${n} commits (${r}%) AI-attributed — no automation signals to amplify`;
 		o.push({
 			label: `Predominantly AI-attributed commits`,
 			points: 0,
 			detail: i
 		});
 	}
-	let M = x?.multiplier ?? 1, N = o.reduce((e, t) => e + (t.amplifiable ? Math.round(t.points * M) : t.points), 0), I = Math.min(100, Math.max(0, 100 - N + p)), L = `automation`;
-	return I >= u.THRESHOLD_HUMAN ? L = `organic` : I >= u.THRESHOLD_SUSPICIOUS && (L = `mixed`), {
-		score: I,
-		classification: L,
+	let w = J(c) ?? 1, A = o.reduce((e, t) => e + (t.amplifiable ? Math.round(t.points * x * w) : t.points), 0), M = Math.min(100, Math.max(0, 100 - A + y)), N = `automation`;
+	return M >= u.THRESHOLD_HUMAN ? N = `organic` : M >= u.THRESHOLD_SUSPICIOUS && (N = `mixed`), {
+		score: M,
+		classification: N,
+		isBountyHunter: v,
 		flags: o,
 		profile: {
 			age: l,
@@ -20682,7 +20804,7 @@ async function run() {
 				warning("Could not fetch verified automations list");
 			}
 			hasCommunityFlag = !!verified.find((account) => account.username === username);
-			analysis = I({
+			analysis = X({
 				accountName: username,
 				reposCount: user.public_repos,
 				createdAt: user.created_at,
