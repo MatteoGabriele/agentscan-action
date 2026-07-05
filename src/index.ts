@@ -8,6 +8,7 @@ import {
   type IdentityClassification,
   identify,
 } from "@unveil/identity";
+import { isKnownBot } from "./known-bots";
 import { parseStringArray, parseTypedArray } from "./utils";
 
 type AutomationListItem = {
@@ -28,8 +29,19 @@ type CustomMessages = Partial<Record<IdentityClassification, string | null>> & {
   communityFlagged?: string | null;
 };
 
+type AuthorAssociation =
+  | "collaborator"
+  | "contributor"
+  | "first_timer"
+  | "first_time_contributor"
+  | "member"
+  | "owner";
+
+type Mode = "full" | "labels" | "comment" | "silent";
+
 const CACHE_TTL_DAYS = 2;
 const DEFAULT_AUTO_CLOSE_CLASSIFICATION: IdentityClassification = "automation";
+const MARKER = "<!-- agentscanapp-bot -->";
 
 function getLabelInput(name: string, defaultValue: string): string {
   return core.getInput(name).trim() || defaultValue;
@@ -40,19 +52,49 @@ function getCustomMessage(name: string): string | null {
   return message || null;
 }
 
+function getMode(): Mode {
+  const validModes: Mode[] = ["full", "labels", "comment", "silent"];
+  const input = core.getInput("mode").trim().toLowerCase();
+  if ((validModes as string[]).includes(input)) {
+    return input as Mode;
+  }
+  core.warning(`Invalid mode "${input}", falling back to "full"`);
+  return "full";
+}
+
 async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
-    const skipMembersInput = core.getInput("skip-members");
-    const skipCommentOnOrganic =
-      core.getInput("skip-comment-on-organic").toLowerCase() === "true";
+    const allowedUsersInput = core.getInput("allowed-users");
+    const trustedAuthorAssociationsInput = core.getInput(
+      "trusted-author-associations",
+    );
+    const scanPullRequests =
+      core.getInput("scan-pull-requests").toLowerCase() !== "false";
+    const scanIssues = core.getInput("scan-issues").toLowerCase() === "true";
+    const mode = getMode();
+    const commentOnOrganic =
+      core.getInput("comment-on-organic").toLowerCase() === "true";
     const cacheDir = core.getInput("cache-path");
     const autoClose = core.getInput("auto-close").toLowerCase() === "true";
     const autoCloseClassificationsInput = core.getInput(
       "auto-close-classifications",
     );
 
-    const skipMembers = parseStringArray(skipMembersInput);
+    const allowedUsers = parseStringArray(allowedUsersInput);
+
+    const trustedAuthorAssociations = parseTypedArray<AuthorAssociation>(
+      trustedAuthorAssociationsInput,
+      (item): item is AuthorAssociation =>
+        [
+          "collaborator",
+          "contributor",
+          "first_timer",
+          "first_time_contributor",
+          "member",
+          "owner",
+        ].includes(item),
+    );
 
     const autoCloseClassifications = parseTypedArray<IdentityClassification>(
       autoCloseClassificationsInput || DEFAULT_AUTO_CLOSE_CLASSIFICATION,
@@ -81,16 +123,52 @@ async function run() {
 
     const context = github.context;
     const username = context.actor;
+    const isPR = context.payload.pull_request !== undefined;
+    const isIssue = context.payload.issue !== undefined;
     const prNumber = context.payload.pull_request?.number;
     const issueNumber = context.payload.issue?.number;
     const targetNumber = prNumber ?? issueNumber;
+    const rawAuthorAssociation =
+      context.payload.pull_request?.author_association ??
+      context.payload.issue?.author_association;
+    const authorAssociation = rawAuthorAssociation?.toLowerCase() as
+      | AuthorAssociation
+      | undefined;
 
     if (!targetNumber) {
       throw new Error("No PR or issue number found");
     }
 
-    if (skipMembers.includes(username)) {
+    if (isPR && !scanPullRequests) {
+      core.info("Skipping analysis: pull request scanning is disabled");
+      return;
+    }
+
+    if (!isPR && isIssue && !scanIssues) {
+      core.info("Skipping analysis: issue scanning is disabled");
+      return;
+    }
+
+    const isAllowedUser = allowedUsers.some(
+      (userName) => userName.toLowerCase() === username.toLowerCase(),
+    );
+    if (isAllowedUser) {
       core.info(`Skipping analysis for ${username}`);
+      return;
+    }
+
+    if (isKnownBot(username)) {
+      core.info(`Skipping analysis for ${username} (known automation)`);
+      return;
+    }
+
+    if (
+      authorAssociation &&
+      trustedAuthorAssociations.includes(authorAssociation)
+    ) {
+      core.info(
+        `Skipping analysis for ${username} (trusted author association: ${authorAssociation})`,
+      );
       return;
     }
 
@@ -219,15 +297,15 @@ async function run() {
     core.setOutput("account-age", analysis.profile.age);
     core.setOutput("username", username);
 
-    // Skip commenting if analysis is organic and skip-comment-on-organic is enabled
+    // Skip commenting if analysis is organic and comment-on-organic is disabled
     if (
-      skipCommentOnOrganic &&
+      !commentOnOrganic &&
       !hasCommunityFlag &&
       analysis.classification === "organic"
     ) {
       const skipEventType = prNumber ? "PR" : "issue";
       core.info(
-        `Skipping comment on ${skipEventType} as analysis returned 'organic' and skip-comment-on-organic is enabled`,
+        `Skipping comment on ${skipEventType} as analysis returned 'organic' and comment-on-organic is disabled`,
       );
       return;
     }
@@ -260,6 +338,7 @@ async function run() {
     }
 
     const body = [
+      MARKER,
       `### ${indicator} ${details.label}`,
       "",
       description,
@@ -270,45 +349,70 @@ async function run() {
     ].join("\n");
 
     try {
-      if (core.getInput("agent-scan-comment") === "true") {
-        await octokit.rest.issues.createComment({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          issue_number: targetNumber,
-          body,
-        });
-      }
+      if (mode === "full" || mode === "comment") {
+        const existingComments = await octokit.paginate(
+          octokit.rest.issues.listComments,
+          {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: targetNumber,
+            per_page: 100,
+          },
+        );
 
-      const labelsToAdd: string[] = [];
+        const existing = existingComments.find((comment) =>
+          comment.body?.includes(MARKER),
+        );
 
-      if (hasCommunityFlag) {
-        labelsToAdd.push(labels.communityFlagged);
-      } else if (analysis.classification !== "organic") {
-        const labelMap: Record<
-          Exclude<IdentityClassification, "organic">,
-          string
-        > = {
-          mixed: labels.mixed,
-          automation: labels.automation,
-        };
-
-        const label = labelMap[analysis.classification];
-        if (label) {
-          labelsToAdd.push(label);
+        if (existing) {
+          await octokit.rest.issues.updateComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            comment_id: existing.id,
+            body,
+          });
+        } else {
+          await octokit.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: targetNumber,
+            body,
+          });
         }
       }
 
-      if (labelsToAdd.length > 0) {
-        await octokit.rest.issues.addLabels({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          issue_number: targetNumber,
-          labels: labelsToAdd,
-        });
+      if (mode === "full" || mode === "labels") {
+        const labelsToAdd: string[] = [];
+
+        if (hasCommunityFlag) {
+          labelsToAdd.push(labels.communityFlagged);
+        } else if (analysis.classification !== "organic") {
+          const labelMap: Record<
+            Exclude<IdentityClassification, "organic">,
+            string
+          > = {
+            mixed: labels.mixed,
+            automation: labels.automation,
+          };
+
+          const label = labelMap[analysis.classification];
+          if (label) {
+            labelsToAdd.push(label);
+          }
+        }
+
+        if (labelsToAdd.length > 0) {
+          await octokit.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: targetNumber,
+            labels: labelsToAdd,
+          });
+        }
       }
 
       const postEventType = prNumber ? "PR" : "issue";
-      core.info(`Comment posted on ${postEventType} #${targetNumber}`);
+      core.info(`Analysis posted on ${postEventType} #${targetNumber}`);
     } catch (commentError: unknown) {
       if (commentError instanceof Error) {
         if (commentError.message.includes("Resource not accessible")) {

@@ -20678,6 +20678,33 @@ function X({ createdAt: e, reposCount: t, accountName: n, events: r, excludeRepo
 	};
 }
 //#endregion
+//#region src/known-bots.ts
+const knownBots = [
+	"agentscanapp",
+	"copilot",
+	"dependabot",
+	"renovate",
+	"greenkeeper",
+	"github-actions",
+	"stale",
+	"snyk",
+	"codecov",
+	"coveralls",
+	"travis",
+	"circle",
+	"appveyor",
+	"azure-pipelines",
+	"netlify",
+	"vercel",
+	"heroku",
+	"aws-amplify",
+	"eslintbot"
+];
+function isKnownBot(username) {
+	const lower = username.toLowerCase();
+	return knownBots.some((name) => lower.includes(name)) || lower.endsWith("[bot]");
+}
+//#endregion
 //#region src/utils.ts
 /**
 * Parse input that can be in JSON array format or comma-separated format
@@ -20720,21 +20747,46 @@ function parseTypedArray(input, validator) {
 //#region src/index.ts
 const CACHE_TTL_DAYS = 2;
 const DEFAULT_AUTO_CLOSE_CLASSIFICATION = "automation";
+const MARKER = "<!-- agentscanapp-bot -->";
 function getLabelInput(name, defaultValue) {
 	return getInput(name).trim() || defaultValue;
 }
 function getCustomMessage(name) {
 	return getInput(name).trim() || null;
 }
+function getMode() {
+	const validModes = [
+		"full",
+		"labels",
+		"comment",
+		"silent"
+	];
+	const input = getInput("mode").trim().toLowerCase();
+	if (validModes.includes(input)) return input;
+	warning(`Invalid mode "${input}", falling back to "full"`);
+	return "full";
+}
 async function run() {
 	try {
 		const token = getInput("github-token", { required: true });
-		const skipMembersInput = getInput("skip-members");
-		const skipCommentOnOrganic = getInput("skip-comment-on-organic").toLowerCase() === "true";
+		const allowedUsersInput = getInput("allowed-users");
+		const trustedAuthorAssociationsInput = getInput("trusted-author-associations");
+		const scanPullRequests = getInput("scan-pull-requests").toLowerCase() !== "false";
+		const scanIssues = getInput("scan-issues").toLowerCase() === "true";
+		const mode = getMode();
+		const commentOnOrganic = getInput("comment-on-organic").toLowerCase() === "true";
 		const cacheDir = getInput("cache-path");
 		const autoClose = getInput("auto-close").toLowerCase() === "true";
 		const autoCloseClassificationsInput = getInput("auto-close-classifications");
-		const skipMembers = parseStringArray(skipMembersInput);
+		const allowedUsers = parseStringArray(allowedUsersInput);
+		const trustedAuthorAssociations = parseTypedArray(trustedAuthorAssociationsInput, (item) => [
+			"collaborator",
+			"contributor",
+			"first_timer",
+			"first_time_contributor",
+			"member",
+			"owner"
+		].includes(item));
 		const autoCloseClassifications = parseTypedArray(autoCloseClassificationsInput || DEFAULT_AUTO_CLOSE_CLASSIFICATION, (item) => ["mixed", "automation"].includes(item));
 		const labels = {
 			communityFlagged: getLabelInput("label-community-flagged", "agentscan:community-flagged"),
@@ -20749,12 +20801,31 @@ async function run() {
 		};
 		const context$2 = context;
 		const username = context$2.actor;
+		const isPR = context$2.payload.pull_request !== void 0;
+		const isIssue = context$2.payload.issue !== void 0;
 		const prNumber = context$2.payload.pull_request?.number;
 		const issueNumber = context$2.payload.issue?.number;
 		const targetNumber = prNumber ?? issueNumber;
+		const authorAssociation = (context$2.payload.pull_request?.author_association ?? context$2.payload.issue?.author_association)?.toLowerCase();
 		if (!targetNumber) throw new Error("No PR or issue number found");
-		if (skipMembers.includes(username)) {
+		if (isPR && !scanPullRequests) {
+			info("Skipping analysis: pull request scanning is disabled");
+			return;
+		}
+		if (!isPR && isIssue && !scanIssues) {
+			info("Skipping analysis: issue scanning is disabled");
+			return;
+		}
+		if (allowedUsers.includes(username)) {
 			info(`Skipping analysis for ${username}`);
+			return;
+		}
+		if (isKnownBot(username)) {
+			info(`Skipping analysis for ${username} (known automation)`);
+			return;
+		}
+		if (authorAssociation && trustedAuthorAssociations.includes(authorAssociation)) {
+			info(`Skipping analysis for ${username} (trusted author association: ${authorAssociation})`);
 			return;
 		}
 		const octokit = getOctokit(token);
@@ -20832,8 +20903,8 @@ async function run() {
 		setOutput("flags", JSON.stringify(analysis.flags));
 		setOutput("account-age", analysis.profile.age);
 		setOutput("username", username);
-		if (skipCommentOnOrganic && !hasCommunityFlag && analysis.classification === "organic") {
-			info(`Skipping comment on ${prNumber ? "PR" : "issue"} as analysis returned 'organic' and skip-comment-on-organic is enabled`);
+		if (!commentOnOrganic && !hasCommunityFlag && analysis.classification === "organic") {
+			info(`Skipping comment on ${prNumber ? "PR" : "issue"} as analysis returned 'organic' and comment-on-organic is disabled`);
 			return;
 		}
 		const indicator = hasCommunityFlag ? "🚩" : {
@@ -20850,6 +20921,7 @@ async function run() {
 		if (customMessages.communityFlagged && hasCommunityFlag) description = customMessages.communityFlagged;
 		else if (customClassificationMessage && !hasCommunityFlag) description = customClassificationMessage;
 		const body = [
+			MARKER,
 			`### ${indicator} ${details.label}`,
 			"",
 			description,
@@ -20859,28 +20931,45 @@ async function run() {
 			"<sub>This is an automated analysis by [AgentScan](https://agentscan.tools)</sub>"
 		].join("\n");
 		try {
-			if (getInput("agent-scan-comment") === "true") await octokit.rest.issues.createComment({
-				owner: context$2.repo.owner,
-				repo: context$2.repo.repo,
-				issue_number: targetNumber,
-				body
-			});
-			const labelsToAdd = [];
-			if (hasCommunityFlag) labelsToAdd.push(labels.communityFlagged);
-			else if (analysis.classification !== "organic") {
-				const label = {
-					mixed: labels.mixed,
-					automation: labels.automation
-				}[analysis.classification];
-				if (label) labelsToAdd.push(label);
+			if (mode === "full" || mode === "comment") {
+				const { data: existingComments } = await octokit.rest.issues.listComments({
+					owner: context$2.repo.owner,
+					repo: context$2.repo.repo,
+					issue_number: targetNumber,
+					per_page: 100
+				});
+				const existing = existingComments.find((comment) => comment.body?.includes(MARKER));
+				if (existing) await octokit.rest.issues.updateComment({
+					owner: context$2.repo.owner,
+					repo: context$2.repo.repo,
+					comment_id: existing.id,
+					body
+				});
+				else await octokit.rest.issues.createComment({
+					owner: context$2.repo.owner,
+					repo: context$2.repo.repo,
+					issue_number: targetNumber,
+					body
+				});
 			}
-			if (labelsToAdd.length > 0) await octokit.rest.issues.addLabels({
-				owner: context$2.repo.owner,
-				repo: context$2.repo.repo,
-				issue_number: targetNumber,
-				labels: labelsToAdd
-			});
-			info(`Comment posted on ${prNumber ? "PR" : "issue"} #${targetNumber}`);
+			if (mode === "full" || mode === "labels") {
+				const labelsToAdd = [];
+				if (hasCommunityFlag) labelsToAdd.push(labels.communityFlagged);
+				else if (analysis.classification !== "organic") {
+					const label = {
+						mixed: labels.mixed,
+						automation: labels.automation
+					}[analysis.classification];
+					if (label) labelsToAdd.push(label);
+				}
+				if (labelsToAdd.length > 0) await octokit.rest.issues.addLabels({
+					owner: context$2.repo.owner,
+					repo: context$2.repo.repo,
+					issue_number: targetNumber,
+					labels: labelsToAdd
+				});
+			}
+			info(`Analysis posted on ${prNumber ? "PR" : "issue"} #${targetNumber}`);
 		} catch (commentError) {
 			if (commentError instanceof Error) if (commentError.message.includes("Resource not accessible")) warning(`Could not post comment on this ${prNumber ? "PR" : "issue"}. Analysis completed but comment/labels skipped.`);
 			else throw commentError;
