@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: "AgentScan"
 description: "Detects automation patterns on GitHub"
 author: "Matteo Gabriele"
@@ -5,16 +6,28 @@ inputs:
   github-token:
     description: "GitHub token"
     required: true
-  skip-members:
+  allowed-users:
     description: "List of usernames to skip from scanning. Can use array syntax in workflow YAML."
     required: false
     default: ""
-  agent-scan-comment:
-    description: "Whether to enable AgentScan commenting on the issue or PR. True by default. You can disable this if you only want to use the outputs and not have the action comment on the issue or PR."
+  trusted-author-associations:
+    description: "List of author associations to skip from scanning (collaborator, contributor, first_timer, first_time_contributor, member, owner). Can use array syntax in workflow YAML."
+    required: false
+    default: ""
+  scan-pull-requests:
+    description: "Whether to analyze pull request authors. True by default."
     required: false
     default: "true"
-  skip-comment-on-organic:
-    description: "Skip posting comment on PR or issue if analysis result is 'organic'"
+  scan-issues:
+    description: "Whether to analyze issue authors. False by default."
+    required: false
+    default: "false"
+  mode:
+    description: "How AgentScan should act on its findings: 'full' (comment and labels), 'labels' (labels only), 'comment' (comment only), or 'silent' (outputs only, no comment or labels)."
+    required: false
+    default: "full"
+  comment-on-organic:
+    description: "Whether to post a comment when the analysis result is 'organic'. False by default."
     required: false
     default: "false"
   cache-path:

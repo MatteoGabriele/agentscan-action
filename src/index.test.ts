@@ -29,10 +29,13 @@ describe("AgentScan Action", () => {
   const setupInputs = (overrides: Record<string, string> = {}) => {
     const defaults: Record<string, string> = {
       "github-token": "test-token",
-      "skip-members": "",
+      "allowed-users": "",
+      "trusted-author-associations": "",
+      "scan-pull-requests": "true",
+      "scan-issues": "false",
       "cache-path": "",
-      "skip-comment-on-organic": "false",
-      "agent-scan-comment": "true",
+      "comment-on-organic": "false",
+      mode: "full",
       "auto-close": "false",
       "auto-close-classifications": "automation",
       "label-community-flagged": "agentscan:community-flagged",
@@ -67,7 +70,9 @@ describe("AgentScan Action", () => {
         getContent: vi.fn().mockResolvedValue({ data: { content: [] } }),
       },
       issues: {
+        listComments: vi.fn().mockResolvedValue({ data: [] }),
         createComment: vi.fn().mockResolvedValue({}),
+        updateComment: vi.fn().mockResolvedValue({}),
         addLabels: vi.fn().mockResolvedValue({}),
         update: vi.fn().mockResolvedValue({}),
       },
@@ -123,7 +128,7 @@ describe("AgentScan Action", () => {
 
   describe("Normal Flow - No cache, no skip", () => {
     beforeEach(() => {
-      setupInputs();
+      setupInputs({ "comment-on-organic": "true" });
       setupContext();
       setupCommonMocks();
       vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
@@ -193,7 +198,7 @@ describe("AgentScan Action", () => {
     });
 
     it("should use fresh cached analysis without making API calls", async () => {
-      setupInputs({ "cache-path": ".agentscan-cache" });
+      setupInputs({ "cache-path": ".agentscan-cache", "comment-on-organic": "true" });
       // Create cache with 1 day old timestamp (within 2-day TTL)
       require("fs").mkdirSync(".agentscan-cache", { recursive: true });
       require("fs").writeFileSync(
@@ -267,13 +272,13 @@ describe("AgentScan Action", () => {
     });
   });
 
-  describe("Skip-Member Flow - Username in skip list", () => {
+  describe("Allowed-Users Flow - Username in allow list", () => {
     beforeEach(() => {
       setupContext();
     });
 
-    it("should skip analysis for member in skip list", async () => {
-      setupInputs({ "skip-members": "test-user,other-user" });
+    it("should skip analysis for member in allowed-users list", async () => {
+      setupInputs({ "allowed-users": "test-user,other-user" });
 
       await run();
 
@@ -285,8 +290,8 @@ describe("AgentScan Action", () => {
       expect(core.setOutput).not.toHaveBeenCalled();
     });
 
-    it("should analyze member not in skip list", async () => {
-      setupInputs({ "skip-members": "other-user,another-user" });
+    it("should analyze member not in allowed-users list", async () => {
+      setupInputs({ "allowed-users": "other-user,another-user" });
       setupCommonMocks();
       vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
 
@@ -295,11 +300,142 @@ describe("AgentScan Action", () => {
       expect(identify).toHaveBeenCalled();
       expect(core.setOutput).toHaveBeenCalledWith("username", "test-user");
     });
+
+    it("should parse and skip multiple members from JSON array", async () => {
+      setupInputs({ "allowed-users": '["test-user", "skip-this"]' });
+
+      await run();
+
+      expect(core.info).toHaveBeenCalledWith(
+        expect.stringContaining("Skipping analysis for test-user"),
+      );
+      expect(identify).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Known Bots Flow - Username matches a known automation", () => {
+    beforeEach(() => {
+      setupContext();
+    });
+
+    it("should skip analysis when actor is a known bot", async () => {
+      Object.defineProperty(github, "context", {
+        value: { ...mockContext, actor: "dependabot[bot]" },
+        configurable: true,
+      });
+      setupInputs();
+
+      await run();
+
+      expect(core.info).toHaveBeenCalledWith(
+        expect.stringContaining("known automation"),
+      );
+      expect(github.getOctokit).not.toHaveBeenCalled();
+      expect(identify).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Trusted Author Associations Flow", () => {
+    it("should skip analysis when author association is trusted", async () => {
+      Object.defineProperty(github, "context", {
+        value: {
+          actor: "test-user",
+          payload: {
+            pull_request: { number: 123, author_association: "MEMBER" },
+          },
+          repo: { owner: "test-owner", repo: "test-repo" },
+        },
+        configurable: true,
+      });
+      setupInputs({ "trusted-author-associations": "member,owner" });
+
+      await run();
+
+      expect(core.info).toHaveBeenCalledWith(
+        expect.stringContaining("trusted author association"),
+      );
+      expect(github.getOctokit).not.toHaveBeenCalled();
+      expect(identify).not.toHaveBeenCalled();
+    });
+
+    it("should analyze when author association is not trusted", async () => {
+      Object.defineProperty(github, "context", {
+        value: {
+          actor: "test-user",
+          payload: {
+            pull_request: { number: 123, author_association: "NONE" },
+          },
+          repo: { owner: "test-owner", repo: "test-repo" },
+        },
+        configurable: true,
+      });
+      setupInputs({ "trusted-author-associations": "member,owner" });
+      setupCommonMocks();
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+
+      await run();
+
+      expect(identify).toHaveBeenCalled();
+    });
+  });
+
+  describe("Scan Gating - Enabling/disabling PR and issue scanning", () => {
+    it("should skip analysis when scan-pull-requests is disabled", async () => {
+      setupContext();
+      setupInputs({ "scan-pull-requests": "false" });
+
+      await run();
+
+      expect(core.info).toHaveBeenCalledWith(
+        expect.stringContaining("pull request scanning is disabled"),
+      );
+      expect(github.getOctokit).not.toHaveBeenCalled();
+      expect(identify).not.toHaveBeenCalled();
+    });
+
+    it("should skip issue analysis by default (scan-issues defaults to false)", async () => {
+      Object.defineProperty(github, "context", {
+        value: {
+          actor: "issue-user",
+          payload: { issue: { number: 456 } },
+          repo: { owner: "test-owner", repo: "test-repo" },
+        },
+        configurable: true,
+      });
+      setupInputs();
+
+      await run();
+
+      expect(core.info).toHaveBeenCalledWith(
+        expect.stringContaining("issue scanning is disabled"),
+      );
+      expect(github.getOctokit).not.toHaveBeenCalled();
+      expect(identify).not.toHaveBeenCalled();
+    });
+
+    it("should analyze issues when scan-issues is enabled", async () => {
+      Object.defineProperty(github, "context", {
+        value: {
+          actor: "issue-user",
+          payload: { issue: { number: 456 } },
+          repo: { owner: "test-owner", repo: "test-repo" },
+        },
+        configurable: true,
+      });
+      setupInputs({ "scan-issues": "true" });
+      setupCommonMocks();
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+
+      await run();
+
+      expect(identify).toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith("username", "issue-user");
+    });
   });
 
   describe("Issue Scanning - Triggered by issue events, no PR", () => {
     beforeEach(() => {
-      setupInputs();
+      setupInputs({ "scan-issues": "true", "comment-on-organic": "true" });
       setupCommonMocks();
       vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
     });
@@ -415,7 +551,7 @@ describe("AgentScan Action", () => {
       );
     });
 
-    it("should handle skip-members for issue events", async () => {
+    it("should handle allowed-users for issue events", async () => {
       const issueContext = {
         actor: "skip-me",
         payload: { issue: { number: 999 } },
@@ -425,7 +561,7 @@ describe("AgentScan Action", () => {
         value: issueContext,
         configurable: true,
       });
-      setupInputs({ "skip-members": "skip-me" });
+      setupInputs({ "scan-issues": "true", "allowed-users": "skip-me" });
 
       await run();
 
@@ -433,6 +569,99 @@ describe("AgentScan Action", () => {
         expect.stringContaining("Skipping analysis for skip-me"),
       );
       expect(github.getOctokit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Comment Idempotency - Reuse existing marked comment", () => {
+    beforeEach(() => {
+      setupInputs({ "comment-on-organic": "true" });
+      setupContext();
+      setupCommonMocks();
+    });
+
+    it("should create a comment when no existing marked comment is found", async () => {
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.listComments).toHaveBeenCalledWith(
+        expect.objectContaining({ issue_number: 123 }),
+      );
+      expect(mockOctokit.rest.issues.createComment).toHaveBeenCalled();
+      expect(mockOctokit.rest.issues.updateComment).not.toHaveBeenCalled();
+    });
+
+    it("should update the existing marked comment instead of creating a new one", async () => {
+      const mockOctokit = createMockOctokit({
+        issues: {
+          listComments: vi.fn().mockResolvedValue({
+            data: [
+              { id: 42, body: "<!-- agentscanapp-bot -->\nold analysis" },
+            ],
+          }),
+        },
+      });
+      vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
+
+      await run();
+
+      expect(mockOctokit.rest.issues.updateComment).toHaveBeenCalledWith(
+        expect.objectContaining({ comment_id: 42 }),
+      );
+      expect(mockOctokit.rest.issues.createComment).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Mode - Controls comment and label posting", () => {
+    beforeEach(() => {
+      setupContext();
+      vi.mocked(identify).mockReturnValue({
+        ...mockAnalysis,
+        classification: "automation",
+      });
+      vi.mocked(getClassificationDetails).mockReturnValue({
+        label: "Automated Account",
+        description: "This account appears to be automated.",
+      });
+      vi.mocked(core.setOutput).mockImplementation(() => {});
+    });
+
+    it("should only add labels in 'labels' mode", async () => {
+      setupInputs({ mode: "labels" });
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.addLabels).toHaveBeenCalled();
+      expect(mockOctokit.rest.issues.createComment).not.toHaveBeenCalled();
+    });
+
+    it("should only comment in 'comment' mode", async () => {
+      setupInputs({ mode: "comment" });
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.createComment).toHaveBeenCalled();
+      expect(mockOctokit.rest.issues.addLabels).not.toHaveBeenCalled();
+    });
+
+    it("should skip comment and labels in 'silent' mode but still set outputs", async () => {
+      setupInputs({ mode: "silent" });
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+
+      await run();
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.issues.createComment).not.toHaveBeenCalled();
+      expect(mockOctokit.rest.issues.addLabels).not.toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith(
+        "classification",
+        "automation",
+      );
     });
   });
 
@@ -671,13 +900,7 @@ describe("AgentScan Action", () => {
       };
       vi.mocked(identify).mockReturnValue(automationAnalysis);
 
-      const mockOctokit = createMockOctokit({
-        issues: {
-          createComment: vi.fn().mockResolvedValue({}),
-          addLabels: vi.fn().mockResolvedValue({}),
-          update: vi.fn().mockResolvedValue({}),
-        },
-      });
+      const mockOctokit = createMockOctokit();
       vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
 
       await run();
@@ -703,13 +926,7 @@ describe("AgentScan Action", () => {
       };
       vi.mocked(identify).mockReturnValue(mixedAnalysis);
 
-      const mockOctokit = createMockOctokit({
-        issues: {
-          createComment: vi.fn().mockResolvedValue({}),
-          addLabels: vi.fn().mockResolvedValue({}),
-          update: vi.fn().mockResolvedValue({}),
-        },
-      });
+      const mockOctokit = createMockOctokit();
       vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
 
       await run();
@@ -729,13 +946,7 @@ describe("AgentScan Action", () => {
       };
       vi.mocked(identify).mockReturnValue(automationAnalysis);
 
-      const mockOctokit = createMockOctokit({
-        issues: {
-          createComment: vi.fn().mockResolvedValue({}),
-          addLabels: vi.fn().mockResolvedValue({}),
-          update: vi.fn().mockResolvedValue({}),
-        },
-      });
+      const mockOctokit = createMockOctokit();
       vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
 
       await run();
@@ -755,13 +966,7 @@ describe("AgentScan Action", () => {
       };
       vi.mocked(identify).mockReturnValue(mixedAnalysis);
 
-      const mockOctokit = createMockOctokit({
-        issues: {
-          createComment: vi.fn().mockResolvedValue({}),
-          addLabels: vi.fn().mockResolvedValue({}),
-          update: vi.fn().mockResolvedValue({}),
-        },
-      });
+      const mockOctokit = createMockOctokit();
       vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
 
       await run();
@@ -792,11 +997,6 @@ describe("AgentScan Action", () => {
             },
           }),
         },
-        issues: {
-          createComment: vi.fn().mockResolvedValue({}),
-          addLabels: vi.fn().mockResolvedValue({}),
-          update: vi.fn().mockResolvedValue({}),
-        },
       });
       vi.mocked(github.getOctokit).mockReturnValue(mockOctokit as any);
 
@@ -809,34 +1009,6 @@ describe("AgentScan Action", () => {
         state: "closed",
         state_reason: "not_planned",
       });
-    });
-  });
-
-  describe("Skip-Members Array Format", () => {
-    beforeEach(() => {
-      setupContext();
-      setupCommonMocks();
-    });
-
-    it("should skip members with JSON array format", async () => {
-      setupInputs({ "skip-members": '["test-user", "other-user"]' });
-
-      await run();
-
-      expect(core.info).toHaveBeenCalledWith(
-        expect.stringContaining("Skipping analysis for test-user"),
-      );
-      expect(identify).not.toHaveBeenCalled();
-    });
-
-    it("should parse and skip multiple members from JSON array", async () => {
-      setupInputs({ "skip-members": '["test-user", "skip-this"]' });
-
-      await run();
-
-      expect(core.info).toHaveBeenCalledWith(
-        expect.stringContaining("Skipping analysis for test-user"),
-      );
     });
   });
 });
