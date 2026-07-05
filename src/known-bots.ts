@@ -1,16 +1,19 @@
-const knownBots = [
+const knownBots = new Set([
   "agentscanapp",
   "copilot",
   "dependabot",
+  "dependabot-preview",
   "renovate",
+  "renovate-bot",
   "greenkeeper",
   "github-actions",
   "stale",
-  "snyk",
+  "snyk-bot",
   "codecov",
+  "codecov-commenter",
   "coveralls",
-  "travis",
-  "circle",
+  "travis-ci",
+  "circleci",
   "appveyor",
   "azure-pipelines",
   "netlify",
@@ -18,11 +21,9 @@ const knownBots = [
   "heroku",
   "aws-amplify",
   "eslintbot",
-];
+]);
 
 export function isKnownBot(username: string): boolean {
   const lower = username.toLowerCase();
-  return (
-    knownBots.some((name) => lower.includes(name)) || lower.endsWith("[bot]")
-  );
+  return lower.endsWith("[bot]") || knownBots.has(lower);
 }

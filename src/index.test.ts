@@ -23,6 +23,7 @@ describe("AgentScan Action", () => {
     score: 20,
     flags: [{ label: "Test Flag", points: 10, detail: "This is a test flag" }],
     profile: { age: 365, repos: 0 },
+    isBountyHunter: false,
   };
 
   // Helper functions to reduce boilerplate
@@ -78,20 +79,34 @@ describe("AgentScan Action", () => {
       },
     };
 
-    return {
-      rest: {
-        ...defaultApis,
-        ...Object.keys(overrides).reduce(
-          (acc, key) => ({
-            ...acc,
+    const rest = {
+      ...defaultApis,
+      ...Object.keys(overrides).reduce(
+        (acc, key) =>
+          Object.assign({
+            acc,
             [key]: {
               ...defaultApis[key as keyof typeof defaultApis],
               ...overrides[key],
             },
           }),
-          defaultApis,
+        defaultApis,
+      ),
+    };
+
+    return {
+      rest,
+      paginate: vi
+        .fn()
+        .mockImplementation(
+          async (
+            method: (params: unknown) => Promise<{ data: unknown }>,
+            params: unknown,
+          ) => {
+            const { data } = await method(params);
+            return data;
+          },
         ),
-      },
     };
   };
 
@@ -198,7 +213,10 @@ describe("AgentScan Action", () => {
     });
 
     it("should use fresh cached analysis without making API calls", async () => {
-      setupInputs({ "cache-path": ".agentscan-cache", "comment-on-organic": "true" });
+      setupInputs({
+        "cache-path": ".agentscan-cache",
+        "comment-on-organic": "true",
+      });
       // Create cache with 1 day old timestamp (within 2-day TTL)
       require("fs").mkdirSync(".agentscan-cache", { recursive: true });
       require("fs").writeFileSync(
@@ -596,9 +614,7 @@ describe("AgentScan Action", () => {
       const mockOctokit = createMockOctokit({
         issues: {
           listComments: vi.fn().mockResolvedValue({
-            data: [
-              { id: 42, body: "<!-- agentscanapp-bot -->\nold analysis" },
-            ],
+            data: [{ id: 42, body: "<!-- agentscanapp-bot -->\nold analysis" }],
           }),
         },
       });

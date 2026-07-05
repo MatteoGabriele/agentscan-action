@@ -149,7 +149,10 @@ async function run() {
       return;
     }
 
-    if (allowedUsers.includes(username)) {
+    const isAllowedUser = allowedUsers.some(
+      (userName) => userName.toLowerCase() === username.toLowerCase(),
+    );
+    if (isAllowedUser) {
       core.info(`Skipping analysis for ${username}`);
       return;
     }
@@ -347,12 +350,15 @@ async function run() {
 
     try {
       if (mode === "full" || mode === "comment") {
-        const { data: existingComments } = await octokit.rest.issues.listComments({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          issue_number: targetNumber,
-          per_page: 100,
-        });
+        const existingComments = await octokit.paginate(
+          octokit.rest.issues.listComments,
+          {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: targetNumber,
+            per_page: 100,
+          },
+        );
 
         const existing = existingComments.find((comment) =>
           comment.body?.includes(MARKER),
