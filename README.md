@@ -39,27 +39,60 @@ The action will run automatically on new and reopened pull requests, and on newl
 ### Inputs
 
 - **github-token** (required): GitHub token for API access
-- **skip-members** (optional): Comma-separated list of usernames to skip from scanning
-- **agent-scan-comment** (optional): Enable/disable posting comments on PRs and issues (default: true). Set to false if you only want to use the outputs
+- **allowed-users** (optional): Comma-separated list of usernames to skip from scanning
+- **trusted-author-associations** (optional): Comma-separated list of author associations to skip from scanning (`collaborator`, `contributor`, `first_timer`, `first_time_contributor`, `member`, `owner`)
+- **scan-pull-requests** (optional): Whether to analyze pull request authors (default: `true`)
+- **scan-issues** (optional): Whether to analyze issue authors (default: `false`)
+- **mode** (optional): How AgentScan should act on its findings: `full` (comment and labels), `labels` (labels only), `comment` (comment only), or `silent` (outputs only) (default: `full`)
+- **comment-on-organic** (optional): Post a comment even when the analysis result is "organic" (default: `false`)
 - **cache-path** (optional): Path to cache directory for storing analysis results (e.g., `.agentscan-cache`). When provided, analysis results are cached and reused within the TTL period
-- **skip-comment-on-organic** (optional): Skip posting PR or issue comment if analysis result is "organic" (default: false)
 - **label-community-flagged** (optional): Label to add when an account is flagged by the community (default: `agentscan:community-flagged`)
 - **label-mixed** (optional): Label to add when an account has mixed automation signals (default: `agentscan:mixed-signals`)
 - **label-automation** (optional): Label to add when an account is classified as automated (default: `agentscan:automated-account`)
+- **auto-close** (optional): Whether to automatically close issues/PRs for detected automations (default: `false`)
+- **auto-close-classifications** (optional): Comma-separated list of classifications that trigger auto-close (default: `automation`)
+- **message-organic** / **message-mixed** / **message-automation** / **message-community-flagged** (optional): Custom messages per classification
 
-### Skip Members
+A machine-readable reference for these inputs (types, enums, defaults) is available at [`agentscan-action-v2.json`](https://agentscan.tools/schemas/agentscan-action-v2.json).
 
-To skip specific team members from being scanned, add their usernames to the `skip-members` input:
+### Allowed Users
+
+To skip specific team members from being scanned, add their usernames to the `allowed-users` input:
 
 ```yaml
 - name: AgentScan
   uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
-    skip-members: "dependabot,renovate,my-trusted-bot"
+    allowed-users: "dependabot,renovate,my-trusted-bot"
 ```
 
-Members in the skip list will be excluded from analysis without any PR comment or labels added.
+Members in the allowed-users list will be excluded from analysis without any PR comment or labels added. Known CI/CD bot accounts (e.g. `dependabot`, `renovate`, `github-actions[bot]`) are always skipped automatically, regardless of this list.
+
+### Trusted Author Associations
+
+To skip analysis based on the author's relationship to the repository, set `trusted-author-associations`:
+
+```yaml
+- name: AgentScan
+  uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    trusted-author-associations: "member,owner,collaborator"
+```
+
+### Scanning Pull Requests and Issues
+
+Use `scan-pull-requests` and `scan-issues` to control which event types are analyzed. `scan-issues` defaults to `false`:
+
+```yaml
+- name: AgentScan
+  uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    scan-pull-requests: true
+    scan-issues: true
+```
 
 ### Caching
 
@@ -90,19 +123,19 @@ steps:
 
 **Cache Invalidation**: Cached entries automatically expire after 2 days.
 
-### Skip Organic Comments
+### Comment on Organic
 
-To skip posting a PR or issue comment when the analysis result is "organic" (clean, human-like activity), enable the `skip-comment-on-organic` option:
+By default, the action skips posting a PR or issue comment when the analysis result is "organic" (clean, human-like activity). To always comment, enable `comment-on-organic`:
 
 ```yaml
 - name: AgentScan
   uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
-    skip-comment-on-organic: true
+    comment-on-organic: true
 ```
 
-When enabled, the action will still output all analysis data (for downstream steps to use) but won't post a comment on the PR or issue if the account is classified as organic.
+The action always outputs all analysis data (for downstream steps to use) regardless of this setting.
 
 ### Custom Labels
 
@@ -118,38 +151,22 @@ To customize labels added to PRs and issues, set any of the label inputs:
     label-automation: "blocked:automated-account"
 ```
 
-### Disable Comments
+### Mode
 
-To disable all PR and issue comments and only use the action's outputs, set `agent-scan-comment` to `false`:
+Control what AgentScan does with its findings via `mode`:
+
+- `full` (default): post a comment and add labels
+- `labels`: add labels only
+- `comment`: post a comment only
+- `silent`: neither — only use the action's outputs in downstream steps
 
 ```yaml
 - name: AgentScan
   uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
-    agent-scan-comment: false
+    mode: silent
 ```
-
-This is useful if you want to use the analysis outputs in downstream steps without posting comments.
-
-## Testing
-
-Run tests with vitest:
-
-```bash
-pnpm run test
-```
-
-Tests cover the following scenarios:
-
-- **Normal Flow**: Analyzes a user without cache, saves result with timestamp
-- **Cached Flow**:
-  - Fresh cache (< 2 days): Uses cached data, skips API calls
-  - Stale cache (≥ 2 days): Invalidates cache, makes fresh API calls
-  - Corrupted cache: Falls back to API calls with warning
-- **Skip-Member Flow**: Members in skip list are not analyzed
-- **Label Assignment**: Correct labels added based on classification (organic, mixed, automation, community-flagged)
-- **Issue Scanning**: Analyzes issue authors with the same automation detection pipeline, posts comments and labels on issues
 
 ---
 
