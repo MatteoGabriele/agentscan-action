@@ -19289,7 +19289,7 @@ function getOctokit(token, options, ...additionalPlugins) {
 	return new (GitHub.plugin(...additionalPlugins))(getOctokitOptions(token, options));
 }
 //#endregion
-//#region node_modules/.pnpm/@unveil+identity@1.10.0/node_modules/@unveil/identity/dist/index.mjs
+//#region node_modules/.pnpm/@unveil+identity@1.12.0/node_modules/@unveil/identity/dist/index.mjs
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || e((t = { exports: {} }).exports, t), t.exports), s = (e, i, o, s) => {
 	if (i && typeof i == `object` || typeof i == `function`) for (var c = r(i), l = 0, u = c.length, d; l < u; l++) d = c[l], !a.call(e, d) && d !== o && t(e, d, {
 		get: ((e) => i[e]).bind(null, d),
@@ -19393,8 +19393,7 @@ const u = {
 	HOURLY_ACTIVITY_HIGH: 50,
 	HOURLY_ACTIVITY_EXTREME: 100,
 	TIGHT_COMMIT_SECONDS: 600,
-	TIGHT_COMMIT_THRESHOLD: 3,
-	TIGHT_COMMIT_THRESHOLD_GLOBAL: 50,
+	TIGHT_COMMIT_THRESHOLD_GLOBAL: 70,
 	POINTS_TIGHT_BURST: 25,
 	CREATE_EVENTS_MIN: 5,
 	CREATE_BURST_EXTREME: 16,
@@ -19423,6 +19422,7 @@ const u = {
 	BRANCH_PR_TIME_WINDOW_SECONDS: 90,
 	BRANCH_PR_PATTERN_MIN_PAIRS: 8,
 	BRANCH_PR_PATTERN_MIN_PAIRS_ESTABLISHED: 15,
+	BRANCH_PR_FORK_MIN_PAIRS_ESTABLISHED: 10,
 	BRANCH_PR_PATTERN_RATIO_MIN: .65,
 	BRANCH_PR_PATTERN_RATIO_MIN_ESTABLISHED: .8,
 	BRANCH_PR_COUNT_RATIO_MIN: .65,
@@ -19434,6 +19434,7 @@ const u = {
 	CLOSED_PR_SPAM_MIN_ESTABLISHED: 8,
 	CLOSED_PR_REPO_SPREAD: 3,
 	CLOSED_PR_TIME_WINDOW_MINUTES: 60,
+	CLOSED_PR_MIN_DENSITY: 1,
 	POINTS_CLOSED_PR_SPAM: 35,
 	POINTS_CLOSED_PR_SPAM_HIGH: 55,
 	POINTS_CLOSED_PR_SPAM_EXTREME: 75,
@@ -19443,6 +19444,14 @@ const u = {
 	ORGANIC_ISSUE_MIN_REPOS: 2,
 	ORGANIC_ISSUE_MIN_DAYS: 7,
 	POINTS_ORGANIC_ISSUE_ENGAGEMENT: 15,
+	ORGANIC_MERGED_PR_MIN: 3,
+	ORGANIC_MERGED_PR_HIGH: 10,
+	ORGANIC_MERGED_PR_EXTREME: 25,
+	ORGANIC_MERGED_PR_MIN_RATE: .5,
+	ORGANIC_MERGED_PR_MIN_OPENED: 3,
+	POINTS_ORGANIC_MERGED_PR: 10,
+	POINTS_ORGANIC_MERGED_PR_HIGH: 20,
+	POINTS_ORGANIC_MERGED_PR_EXTREME: 30,
 	WATCH_SPAM_MIN_EVENTS: 10,
 	WATCH_SPAM_WINDOW_HOURS: 24,
 	WATCH_SPAM_REPOS_HIGH: 20,
@@ -19452,14 +19461,17 @@ const u = {
 	COMMENT_BEFORE_PR_VERY_FAST_MINUTES: 5,
 	COMMENT_BEFORE_PR_VERY_FAST_MIN_REPOS: 2,
 	POINTS_COMMENT_BEFORE_PR_VERY_FAST: 30,
-	BOUNTY_REPO_MIN_PRS: 2,
+	BOUNTY_REPO_MIN_PRS: 3,
 	BOUNTY_REPO_RATIO_HIGH: .75,
 	BOUNTY_REPO_RATIO_LOW: .4,
 	BOUNTY_REPO_MERGE_RATE_CLEAN: .5,
-	BOUNTY_REPO_LABEL_MIN: 3,
-	POINTS_BOUNTY_REPO_LABEL_NO_ENGAGEMENT: 35,
 	BOUNTY_MULTIPLIER_HIGH: 1.3,
 	BOUNTY_MULTIPLIER_LOW: 1.15,
+	AI_BRANCH_MIN_CREATIONS: 3,
+	AI_BRANCH_RATIO_MIN: .5,
+	POINTS_AI_BRANCH_PREFIX: 30,
+	BOUNTY_LABEL_MIN: 3,
+	POINTS_BOUNTY_LABEL_INFRA: 25,
 	AI_COMMIT_MIN_COMMITS: 5,
 	AI_COMMIT_TIERS: [
 		{
@@ -19881,11 +19893,23 @@ function g(e) {
 	return e < u.AGE_NEW_ACCOUNT ? t.push({
 		label: `Recently created`,
 		points: u.POINTS_NEW_ACCOUNT,
-		detail: `Account is ${e} days old`
+		detail: `Account is ${e} days old`,
+		data: [{
+			label: `Account age (days)`,
+			value: e,
+			threshold: u.AGE_NEW_ACCOUNT
+		}],
+		events: []
 	}) : e < u.AGE_YOUNG_ACCOUNT && t.push({
 		label: `Young account`,
 		points: u.POINTS_YOUNG_ACCOUNT,
-		detail: `Account is ${e} days old`
+		detail: `Account is ${e} days old`,
+		data: [{
+			label: `Account age (days)`,
+			value: e,
+			threshold: u.AGE_YOUNG_ACCOUNT
+		}],
+		events: []
 	}), t;
 }
 h.default.extend(p.default);
@@ -19914,234 +19938,443 @@ function _(e) {
 			});
 		}
 	}), r) {
-		let e = r;
+		let n = r;
 		if (i < 3) {
-			let n = u.POINTS_24_7_ACTIVITY;
-			i < 1 && (n = Math.round(n * 1.5)), t.push({
+			let r = u.POINTS_24_7_ACTIVITY;
+			i < 1 && (r = Math.round(r * 1.5));
+			let a = e.filter((e) => h.default.utc(e.created_at).format(`YYYY-MM-DD`) === n.day);
+			t.push({
 				label: `24/7 activity pattern`,
-				points: n,
+				points: r,
 				amplifiable: !0,
-				detail: `${e.day}: active across ${e.hoursActive} hours with only ${i} hour${i === 1 ? `` : `s`} rest`
+				detail: `${n.day}: active across ${n.hoursActive} hours with only ${i} hour${i === 1 ? `` : `s`} rest`,
+				data: [
+					{
+						label: `Date`,
+						value: n.day
+					},
+					{
+						label: `Hours active`,
+						value: n.hoursActive,
+						threshold: u.HOURS_ACTIVE_EXTREME
+					},
+					{
+						label: `Rest hours`,
+						value: i
+					},
+					{
+						label: `Events on that day`,
+						value: n.eventCount
+					}
+				],
+				events: a
 			});
 		}
 	}
 	return t;
 }
-const v = `0106hyh/hammer-and-nail,0106hyh/kickama-manifest-wizard,123a-bcd/nailstorm-bounty-forge-358,123a-bcd/zeroeye,2lll5/TentOfTrials,9904099/hammer-and-nail-bounty,9904099/zeroeye,aLexzzz430/Cognitive-OS,alulaalmi/Apache-APISIX,ANAVHEOBA/PrivacyLayer,Andyyook/zeroeye,aozorayama45/Apache-DolphinScheduler,aozorayama45/Traefik,Arrow-air/website,asyncapi/tck,atharvnaik1/ipaship-audit,auscaster/frantic-board,benglezhenjun/zeroeye,bitcoin-dot-org/Bitcoin.org,bolivian-peru/marketplace-service-template,caydyan/zeroeye,commaai/opendbc,cuentaprueba244w-dotcom/TentOfTrials,cuentaprueba244w-dotcom/zeroeye,Dasharo/dasharo-issues,davontepowlowsk1i/Apache-Pulsar,davontepowlowsk1i/CockroachDB,davontepowlowsk1i/gofiber-fiber,digitaldesignerjazz/atrium-forum,Dipraise1/Engram,dungkimtran3d/Traefik,elnahomenick123/Gitea,elnahomenick123/Vault,eunseobchoi/NIPS26_A_CV2024,FreezingMoon/AncientBeast,hunki1488-a11y/AIgor,illbnm/homelab-stack,INDIGOAZUL/la-tanda-web,jackjin1997/TentOfTrials,jackjin1997/zeroeye,jaxassistant55/TentOfTrials,Jennycruzy/sovereign-genesis,jeromyritchie52/Apache-ZooKeeper,jhosepm352-design/oabp-langchain-tool,juanitahagenes/ClickHouse,kcolbchain/arka,killernova/zeroeye,lakhman108/zeroeye,lily-protocol/lily-backend,lobster-trap/Kickama,lobster-trap/SmartGesture,maitebloger111/Apache-Arrow,manav8498/TentOfTrials,mergeos-bounties/mergeos,midnightntwrk/contributor-hub,moorcheh-ai/memanto,Paratii-Video/paratii-js,Paratii-Video/paratii-mediaplayer,Paratii-Video/paratii-portal,pci-tamper-protect/e-skimming-labs,Peter7896/TentOfTrials,Peter7896/zeroeye,priyanshudumps/fuel-agent-kit,promptpolish-ai/git-context,quachminh11/VictoriaMetrics,relayhop/sn-monetization-runtime,remotion-dev/remotion,renaudgenard/TentOfTrials,renaudgenard/zeroeye,Reqrefusion/FreeCAD-Documentation-Project,rodrickparker11/TiKV,runxhq/runx,Scottcjn/bottube,Scottcjn/Rustchain,Scottcjn/rustchain-bounties,Scottcjn/rustchain-dialup,Scottcjn/vintage-voice,SecureBananaLabs/bug-bounty,shaiananvari8/zeroeye,skndash96/bountic,SnowfallHD/TentOfTrials,SnowfallHD/zeroeye,Soengkit/frailbox-checkpoint,Soengkit/zeroeye,Soengkit/zeroeye-killernova,SolFoundry/solfoundry,SPLURT-Station/S.P.L.U.R.T-tg,tari-project/minotari-cli,tari-project/tari,tari-project/universe,tari-project/wallet-benchmarks,tari-project/wxtm-bridge-frontend,TauCetiStation/TauCetiClassic,tenstorrent/tt-llk,tenstorrent/tt-metal,thanhle74/kickama,thanhle74/TentOfTrials,thaohuynh14zc/GORM,thaohuynh14zc/spf13-cobra,thaohuynh14zc/urfave-cli,Thecesar85/TentOfTrials-bounty-67,vedanshjainvj/Job-Hive,victorjones6awpg/Casbin,warpspeedopen-source/warpspeed-bounties,watney-ai/open-source-bounties,waxeye7/screeps-bounty-arena,weilixiong/TentOfTrials,weilixiong/zeroeye,wulansari999/Kickama-Wulansari-Bounty,xevrion-v2/agent-playground,xxnjms1-code/kickama-prize-lab`.split(`,`), y = new Set(v.map((e) => e.split(`/`)[1]?.toLowerCase()).filter(Boolean)), b = new Set(v.map((e) => e.toLowerCase()));
-function x(e) {
+const v = [
+	`codex/`,
+	`devin/`,
+	`aider/`,
+	`copilot/`,
+	`swe-agent/`,
+	`swe-bench/`
+];
+function y(e) {
 	let t = e.toLowerCase();
-	if (b.has(t)) return !0;
+	return v.some((e) => t.startsWith(e));
+}
+function b(e) {
+	let t = e.filter((e) => e.type === `CreateEvent` && e.payload?.ref_type === `branch`);
+	if (t.length < u.AI_BRANCH_MIN_CREATIONS) return [];
+	let n = t.filter((e) => y(e.payload?.ref ?? ``)), r = n.length / t.length;
+	if (r < u.AI_BRANCH_RATIO_MIN) return [];
+	let i = [...new Set(n.map((e) => {
+		let t = (e.payload?.ref ?? ``).toLowerCase();
+		return v.find((e) => t.startsWith(e)) ?? ``;
+	}))].filter(Boolean);
+	return [{
+		label: `AI agent branch naming pattern`,
+		points: u.POINTS_AI_BRANCH_PREFIX,
+		amplifiable: !0,
+		detail: `${n.length}/${t.length} branches use AI agent tool prefixes (${i.join(`, `)})`,
+		data: [
+			{
+				label: `AI-prefixed branches`,
+				value: n.length
+			},
+			{
+				label: `Total branches`,
+				value: t.length,
+				threshold: u.AI_BRANCH_MIN_CREATIONS
+			},
+			{
+				label: `AI branch ratio`,
+				value: `${Math.round(r * 100)}%`,
+				threshold: `${Math.round(u.AI_BRANCH_RATIO_MIN * 100)}%`
+			},
+			{
+				label: `Detected prefixes`,
+				value: i.join(`, `)
+			}
+		],
+		events: n
+	}];
+}
+const x = `0106hyh/hammer-and-nail,0106hyh/kickama-manifest-wizard,123a-bcd/nailstorm-bounty-forge-358,123a-bcd/zeroeye,2lll5/TentOfTrials,9904099/hammer-and-nail-bounty,9904099/zeroeye,aLexzzz430/Cognitive-OS,alulaalmi/Apache-APISIX,ANAVHEOBA/PrivacyLayer,Andyyook/zeroeye,aozorayama45/Apache-DolphinScheduler,aozorayama45/Traefik,Arrow-air/website,asyncapi/tck,atharvnaik1/ipaship-audit,auscaster/frantic-board,benglezhenjun/zeroeye,bitcoin-dot-org/Bitcoin.org,bolivian-peru/marketplace-service-template,caydyan/zeroeye,commaai/opendbc,cuentaprueba244w-dotcom/TentOfTrials,cuentaprueba244w-dotcom/zeroeye,Dasharo/dasharo-issues,davontepowlowsk1i/Apache-Pulsar,davontepowlowsk1i/CockroachDB,davontepowlowsk1i/gofiber-fiber,digitaldesignerjazz/atrium-forum,Dipraise1/Engram,dungkimtran3d/Traefik,elnahomenick123/Gitea,elnahomenick123/Vault,eunseobchoi/NIPS26_A_CV2024,FreezingMoon/AncientBeast,hunki1488-a11y/AIgor,illbnm/homelab-stack,INDIGOAZUL/la-tanda-web,jackjin1997/TentOfTrials,jackjin1997/zeroeye,jaxassistant55/TentOfTrials,Jennycruzy/sovereign-genesis,jeromyritchie52/Apache-ZooKeeper,jhosepm352-design/oabp-langchain-tool,juanitahagenes/ClickHouse,kcolbchain/arka,killernova/zeroeye,lakhman108/zeroeye,lily-protocol/lily-backend,lobster-trap/Kickama,lobster-trap/SmartGesture,maitebloger111/Apache-Arrow,manav8498/TentOfTrials,mergeos-bounties/mergeos,midnightntwrk/contributor-hub,moorcheh-ai/memanto,Paratii-Video/paratii-js,Paratii-Video/paratii-mediaplayer,Paratii-Video/paratii-portal,pci-tamper-protect/e-skimming-labs,Peter7896/TentOfTrials,Peter7896/zeroeye,priyanshudumps/fuel-agent-kit,promptpolish-ai/git-context,quachminh11/VictoriaMetrics,relayhop/sn-monetization-runtime,remotion-dev/remotion,renaudgenard/TentOfTrials,renaudgenard/zeroeye,Reqrefusion/FreeCAD-Documentation-Project,rodrickparker11/TiKV,runxhq/runx,Scottcjn/bottube,Scottcjn/Rustchain,Scottcjn/rustchain-bounties,Scottcjn/rustchain-dialup,Scottcjn/vintage-voice,SecureBananaLabs/bug-bounty,shaiananvari8/zeroeye,skndash96/bountic,SnowfallHD/TentOfTrials,SnowfallHD/zeroeye,Soengkit/frailbox-checkpoint,Soengkit/zeroeye,Soengkit/zeroeye-killernova,SolFoundry/solfoundry,SPLURT-Station/S.P.L.U.R.T-tg,tari-project/minotari-cli,tari-project/tari,tari-project/universe,tari-project/wallet-benchmarks,tari-project/wxtm-bridge-frontend,TauCetiStation/TauCetiClassic,tenstorrent/tt-llk,tenstorrent/tt-metal,thanhle74/kickama,thanhle74/TentOfTrials,thaohuynh14zc/GORM,thaohuynh14zc/spf13-cobra,thaohuynh14zc/urfave-cli,Thecesar85/TentOfTrials-bounty-67,vedanshjainvj/Job-Hive,victorjones6awpg/Casbin,warpspeedopen-source/warpspeed-bounties,watney-ai/open-source-bounties,waxeye7/screeps-bounty-arena,weilixiong/TentOfTrials,weilixiong/zeroeye,wulansari999/Kickama-Wulansari-Bounty,xevrion-v2/agent-playground,xxnjms1-code/kickama-prize-lab,UnsafeLabs/Bounty-Hunters,charles-openclaw/charles-microbounties`.split(`,`), S = new Set(x.map((e) => e.split(`/`)[1]?.toLowerCase()).filter(Boolean)), C = new Set(x.map((e) => e.toLowerCase())), w = /\[\$\d+|\$\d+\s*(bounty|usd|usdc)/i;
+function T(e) {
+	let t = e.toLowerCase();
+	if (C.has(t)) return !0;
 	let n = t.split(`/`)[1];
-	return n !== void 0 && y.has(n);
+	return n !== void 0 && S.has(n);
 }
-function S(e) {
-	return e.some((e) => {
-		let t = e.repo?.name;
-		return t ? x(t) : !1;
-	});
+function E(e) {
+	let t = e.filter((e) => e.type === `IssuesEvent` && e.payload?.action === `labeled` && e.repo?.name !== void 0 && T(e.repo.name) && w.test(e.payload?.issue?.title ?? ``));
+	if (t.length < u.BOUNTY_LABEL_MIN) return [];
+	let n = new Set(t.map((e) => e.repo?.name).filter(Boolean));
+	return [{
+		label: `Bounty infrastructure activity`,
+		points: u.POINTS_BOUNTY_LABEL_INFRA,
+		amplifiable: !0,
+		detail: `${t.length} issues labeled with bounty amounts across ${n.size} known bounty repo${n.size === 1 ? `` : `s`}`,
+		data: [{
+			label: `Bounty-labeled issues`,
+			value: t.length,
+			threshold: u.BOUNTY_LABEL_MIN
+		}, {
+			label: `Repos involved`,
+			value: n.size
+		}],
+		events: t
+	}];
 }
-function C(e) {
+function D(e) {
+	let t = e.toLowerCase();
+	if (C.has(t)) return !0;
+	let n = t.split(`/`)[1];
+	return n !== void 0 && S.has(n);
+}
+function O(e) {
+	return e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened` && e.repo?.name && D(e.repo.name)).length >= u.BOUNTY_REPO_MIN_PRS;
+}
+function k(e) {
 	let t = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`);
 	if (t.length < u.BOUNTY_REPO_MIN_PRS) return null;
 	let n = t.filter((e) => {
 		let t = e.repo?.name;
-		return t ? x(t) : !1;
+		return t ? D(t) : !1;
 	});
 	if (n.length === 0) return null;
 	let r = n.length / t.length;
 	if (r < u.BOUNTY_REPO_RATIO_LOW) return null;
-	let i = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `merged` && e.repo?.name && x(e.repo.name)), a = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `closed` && e.repo?.name && x(e.repo.name)), o = i.length + a.length;
+	let i = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `merged` && e.repo?.name && D(e.repo.name)), a = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `closed` && e.repo?.name && D(e.repo.name)), o = i.length + a.length;
 	return o > 0 && i.length / o >= u.BOUNTY_REPO_MERGE_RATE_CLEAN ? null : r >= u.BOUNTY_REPO_RATIO_HIGH ? `high` : `low`;
 }
-function w(e) {
-	let t = e.filter((e) => e.type === `IssuesEvent` && e.payload?.action === `labeled`);
-	return t.length < u.BOUNTY_REPO_LABEL_MIN ? !1 : t.filter((e) => {
-		let t = e.repo?.name;
-		return t ? x(t) : !1;
-	}).length >= u.BOUNTY_REPO_LABEL_MIN;
-}
-function T(e) {
-	let t = C(e);
+function A(e) {
+	let t = k(e);
 	if (!t) return [];
 	let n = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`), r = n.filter((e) => {
 		let t = e.repo?.name;
-		return t ? x(t) : !1;
-	}), i = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `merged` && e.repo?.name && x(e.repo.name)), a = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `closed` && e.repo?.name && x(e.repo.name)), o = r.length / n.length, s = Math.round(o * 100), c = i.length + a.length > 0 ? `${r.length} of ${n.length} opened PRs (${s}%) target known bounty program repositories; ${i.length} merged, ${a.length} closed without merge` : `${r.length} of ${n.length} opened PRs (${s}%) target known bounty program repositories`;
+		return t ? D(t) : !1;
+	}), i = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `merged` && e.repo?.name && D(e.repo.name)), a = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `closed` && e.repo?.name && D(e.repo.name)), o = r.length / n.length, s = Math.round(o * 100), c = i.length + a.length > 0 ? `${r.length} of ${n.length} opened PRs (${s}%) target known bounty program repositories; ${i.length} merged, ${a.length} closed without merge` : `${r.length} of ${n.length} opened PRs (${s}%) target known bounty program repositories`;
 	return [{
 		label: t === `high` ? `PRs predominantly targeting known bounty program repositories` : `PR activity in known bounty program repositories`,
 		points: 0,
 		amplifiable: !1,
-		detail: c
+		detail: c,
+		data: [
+			{
+				label: `PRs to bounty repos`,
+				value: r.length
+			},
+			{
+				label: `Total PRs opened`,
+				value: n.length
+			},
+			{
+				label: `Bounty PR ratio`,
+				value: `${s}%`
+			},
+			{
+				label: `Merged`,
+				value: i.length
+			},
+			{
+				label: `Closed without merge`,
+				value: a.length
+			}
+		],
+		events: [
+			...r,
+			...i,
+			...a
+		]
 	}];
 }
-function E(e) {
-	if (!w(e)) return [];
-	let t = e.filter((e) => e.type === `IssuesEvent` && e.payload?.action === `labeled`).filter((e) => {
-		let t = e.repo?.name;
-		return t ? x(t) : !1;
-	}), n = new Set(t.map((e) => e.repo?.name).filter(Boolean)), r = `${t.length} labeling events across ${n.size} bounty program repositories`;
-	return e.some((e) => {
-		let t = e.repo?.name;
-		return !t || !n.has(t) ? !1 : e.type === `PullRequestEvent` && e.payload?.action === `opened` || e.type === `IssueCommentEvent`;
-	}) ? [{
-		label: `Issue management in known bounty program repositories`,
-		points: 0,
-		amplifiable: !1,
-		detail: r
-	}] : [{
-		label: `Bounty issue cataloging with no follow-up engagement`,
-		points: u.POINTS_BOUNTY_REPO_LABEL_NO_ENGAGEMENT,
-		amplifiable: !0,
-		detail: r
-	}];
-}
-function D(e, t) {
-	let n = [], r = t >= u.AGE_ESTABLISHED_ACCOUNT, i = r ? u.BRANCH_PR_PATTERN_MIN_PAIRS_ESTABLISHED : u.BRANCH_PR_PATTERN_MIN_PAIRS, a = r ? u.BRANCH_PR_PATTERN_RATIO_MIN_ESTABLISHED : u.BRANCH_PR_PATTERN_RATIO_MIN, o = e.filter((e) => e.type === `CreateEvent` && e.payload?.ref_type === `branch`), s = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`);
+function j(e, t) {
+	let n = [], r = t >= u.AGE_ESTABLISHED_ACCOUNT, i = r ? u.BRANCH_PR_PATTERN_MIN_PAIRS_ESTABLISHED : u.BRANCH_PR_PATTERN_MIN_PAIRS, a = r ? u.BRANCH_PR_PATTERN_RATIO_MIN_ESTABLISHED : u.BRANCH_PR_PATTERN_RATIO_MIN, o = e.filter((e) => e.type === `CreateEvent` && e.payload?.ref_type === `branch`), s = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`), c = o.map((e) => ({
+		event: e,
+		time: (0, h.default)(e.created_at)
+	})).sort((e, t) => e.time.valueOf() - t.time.valueOf()), l = s.map((e) => ({
+		event: e,
+		time: (0, h.default)(e.created_at)
+	})).sort((e, t) => e.time.valueOf() - t.time.valueOf());
 	if (o.length >= i && s.length >= i && o.length / s.length >= u.BRANCH_PR_COUNT_RATIO_MIN) {
-		let e = o.map((e) => ({
-			event: e,
-			time: (0, h.default)(e.created_at)
-		})).sort((e, t) => e.time.valueOf() - t.time.valueOf()), t = s.map((e) => ({
-			event: e,
-			time: (0, h.default)(e.created_at)
-		})).sort((e, t) => e.time.valueOf() - t.time.valueOf()), r = /* @__PURE__ */ new Map();
-		for (let e of t) {
+		let e = /* @__PURE__ */ new Map();
+		for (let t of l) {
+			let n = t.event.repo?.name;
+			n && (e.has(n) || e.set(n, []), e.get(n)?.push(t));
+		}
+		let t = 0, r = 0, s = /* @__PURE__ */ new Map(), d = [], f = [];
+		for (let n of c) {
+			let i = n.event.repo?.name;
+			if (!i) continue;
+			let a = e.get(i);
+			if (!a || a.length === 0) continue;
+			s.has(i) || s.set(i, 0);
+			let o = s.get(i) ?? 0;
+			for (; o < a.length && a[o].time.valueOf() < n.time.valueOf();) o++;
+			if (o < a.length) {
+				let e = a[o].time.diff(n.time, `second`);
+				e >= 0 && e <= u.BRANCH_PR_TIME_WINDOW_SECONDS && (t++, r = Math.max(r, e), d.push(n.event), f.push(a[o].event), o++);
+			}
+			s.set(i, o);
+		}
+		if (t >= i) {
+			let e = t / o.length;
+			if (e >= a) return n.push({
+				label: `Automated branch/PR workflow`,
+				points: u.POINTS_BRANCH_PR_AUTOMATION,
+				amplifiable: !0,
+				detail: `${t}/${o.length} branch creations followed by PRs within ${r}s`,
+				data: [
+					{
+						label: `Matched branch→PR pairs`,
+						value: t,
+						threshold: i
+					},
+					{
+						label: `Total branches`,
+						value: o.length
+					},
+					{
+						label: `Automation ratio`,
+						value: `${Math.round(e * 100)}%`,
+						threshold: `${Math.round(a * 100)}%`
+					},
+					{
+						label: `Max time branch→PR (s)`,
+						value: r,
+						threshold: u.BRANCH_PR_TIME_WINDOW_SECONDS
+					}
+				],
+				events: [...d, ...f],
+				connections: d.map((e, t) => ({
+					from: e,
+					to: f[t]
+				}))
+			}), n;
+		}
+	}
+	let d = r ? u.BRANCH_PR_FORK_MIN_PAIRS_ESTABLISHED : u.BRANCH_PR_PATTERN_MIN_PAIRS;
+	if (o.length >= d && s.length >= d) {
+		let e = 0, t = 0, r = [], i = [], s = /* @__PURE__ */ new Set();
+		for (let e of c) {
 			let t = e.event.repo?.name;
-			t && (r.has(t) || r.set(t, []), r.get(t)?.push(e));
-		}
-		let c = 0, l = 0, d = /* @__PURE__ */ new Map();
-		for (let t of e) {
-			let e = t.event.repo?.name;
-			if (!e) continue;
-			let n = r.get(e);
-			if (!n || n.length === 0) continue;
-			d.has(e) || d.set(e, 0);
-			let i = d.get(e) ?? 0;
-			for (; i < n.length && n[i].time.valueOf() < t.time.valueOf();) i++;
-			if (i < n.length) {
-				let e = n[i].time.diff(t.time, `second`);
-				e >= 0 && e <= u.BRANCH_PR_TIME_WINDOW_SECONDS && (c++, l = Math.max(l, e), i++);
+			if (t) {
+				let e = t.split(`/`)[1];
+				e && s.add(e);
 			}
-			d.set(e, i);
 		}
-		if (c >= i) c / o.length >= a && n.push({
-			label: `Automated branch/PR workflow`,
-			points: u.POINTS_BRANCH_PR_AUTOMATION,
-			amplifiable: !0,
-			detail: `${c}/${o.length} branch creations followed by PRs within ${l}s`
-		});
-		else {
-			let r = 0, s = 0, c = /* @__PURE__ */ new Set();
-			for (let t of e) {
-				let e = t.event.repo?.name;
-				if (e) {
-					let t = e.split(`/`)[1];
-					t && c.add(t);
-				}
-			}
-			for (let n of c) {
-				let i = e.filter((e) => {
-					let t = e.event.repo?.name;
-					return t && t.split(`/`)[1] === n;
-				}), a = t.filter((e) => {
-					let t = e.event.repo?.name;
-					return t && t.split(`/`)[1] === n;
-				});
-				if (i.length > 0 && a.length > 0) {
-					let e = 0;
-					for (let t of i) {
-						for (; e < a.length && a[e].time.valueOf() < t.time.valueOf();) e++;
-						if (e < a.length) {
-							let n = a[e].time.diff(t.time, `second`);
-							n >= 0 && n <= u.BRANCH_PR_TIME_WINDOW_SECONDS && (r++, s = Math.max(s, n), e++);
-						}
+		for (let n of s) {
+			let a = c.filter((e) => {
+				let t = e.event.repo?.name;
+				return t && t.split(`/`)[1] === n;
+			}), o = l.filter((e) => {
+				let t = e.event.repo?.name;
+				return t && t.split(`/`)[1] === n;
+			});
+			if (a.length > 0 && o.length > 0) {
+				let n = 0;
+				for (let s of a) {
+					for (; n < o.length && o[n].time.valueOf() < s.time.valueOf();) n++;
+					if (n < o.length) {
+						let a = o[n].time.diff(s.time, `second`), c = s.event.repo?.name?.split(`/`)[0], l = o[n].event.repo?.name?.split(`/`)[0];
+						a >= 0 && a <= u.BRANCH_PR_TIME_WINDOW_SECONDS && c !== void 0 && l !== void 0 && c !== l && (e++, t = Math.max(t, a), r.push(s.event), i.push(o[n].event), n++);
 					}
 				}
 			}
-			r >= i && r / o.length >= a && n.push({
+		}
+		if (e >= d) {
+			let s = e / o.length;
+			s >= a && n.push({
 				label: `Automated fork/PR workflow`,
 				points: u.POINTS_BRANCH_PR_AUTOMATION,
 				amplifiable: !0,
-				detail: `${r}/${o.length} fork branches followed by upstream PRs within ${s}s`
+				detail: `${e}/${o.length} fork branches followed by upstream PRs within ${t}s`,
+				data: [
+					{
+						label: `Matched fork branch→PR pairs`,
+						value: e,
+						threshold: d
+					},
+					{
+						label: `Total branches`,
+						value: o.length
+					},
+					{
+						label: `Automation ratio`,
+						value: `${Math.round(s * 100)}%`,
+						threshold: `${Math.round(a * 100)}%`
+					},
+					{
+						label: `Max time branch→PR (s)`,
+						value: t,
+						threshold: u.BRANCH_PR_TIME_WINDOW_SECONDS
+					}
+				],
+				events: [...r, ...i],
+				connections: r.map((e, t) => ({
+					from: e,
+					to: i[t]
+				}))
 			});
 		}
 	}
 	return n;
 }
-function O(e, t) {
-	let n = [], r = t >= u.AGE_ESTABLISHED_ACCOUNT ? u.CLOSED_PR_SPAM_MIN_ESTABLISHED : u.CLOSED_PR_SPAM_MIN, i = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `closed` && e.payload?.pull_request?.merged !== !0);
-	if (i.length < r) return n;
-	let a = new Set(i.map((e) => e.repo?.name).filter((e) => e !== void 0)), o = i.map((e) => (0, h.default)(e.created_at)), s = o.reduce((e, t) => t.isBefore(e) ? t : e), c = o.reduce((e, t) => t.isAfter(e) ? t : e), l = c.diff(s, `minute`), d = c.diff(s, `day`), f = c.diff(s, `day`, !0), p = d > 0 ? `${d}d` : `${Math.ceil(l / 60)}h`, m = /* @__PURE__ */ new Map();
-	i.forEach((e) => {
+function M(e, t, n) {
+	let r = [], i = t >= u.AGE_ESTABLISHED_ACCOUNT ? u.CLOSED_PR_SPAM_MIN_ESTABLISHED : u.CLOSED_PR_SPAM_MIN, a = n.toLowerCase(), o = e.filter((e) => e.type !== `PullRequestEvent` || e.payload?.action !== `closed` ? !1 : (e.payload?.pull_request?.head?.repo?.url?.toLowerCase() ?? ``).includes(`/repos/${a}/`));
+	if (o.length < i) return r;
+	let s = new Set(o.map((e) => e.repo?.name).filter((e) => e !== void 0)), c = o.map((e) => (0, h.default)(e.created_at)), l = c.reduce((e, t) => t.isBefore(e) ? t : e), d = c.reduce((e, t) => t.isAfter(e) ? t : e), f = d.diff(l, `minute`), p = d.diff(l, `day`), m = d.diff(l, `day`, !0), g = p > 0 ? `${p}d` : `${Math.ceil(f / 60)}h`, _ = /* @__PURE__ */ new Map();
+	o.forEach((e) => {
 		let t = h.default.utc(e.created_at).format(`YYYY-MM-DD`);
-		m.set(t, (m.get(t) || 0) + 1);
+		_.set(t, (_.get(t) || 0) + 1);
 	});
-	let g = Array.from(m.entries()).filter(([e, t]) => t >= 10).sort((e, t) => t[1] - e[1]).map(([e, t]) => t), _ = ``;
-	g.length > 0 && (_ = g.length === 1 ? `, with a spike of ${g[0]} closures on one day` : `, with spike days of ${g.slice(0, -1).join(`, `) + ` and ${g[g.length - 1]}`} closures each`);
-	let v = u.POINTS_CLOSED_PR_SPAM;
-	i.length >= 100 ? v = u.POINTS_CLOSED_PR_SPAM_EXTREME : i.length >= 25 && (v = u.POINTS_CLOSED_PR_SPAM_HIGH);
-	let y = f > 0 ? i.length / f : i.length, b = g.length > 0, x = i.length >= 25, S = y >= .5;
-	if (a.size >= u.CLOSED_PR_REPO_SPREAD && (b || x || S)) return n.push({
+	let v = Array.from(_.entries()).filter(([e, t]) => t >= 10).sort((e, t) => t[1] - e[1]).map(([e, t]) => t), y = ``;
+	v.length > 0 && (y = v.length === 1 ? `, with a spike of ${v[0]} closures on one day` : `, with spike days of ${v.slice(0, -1).join(`, `) + ` and ${v[v.length - 1]}`} closures each`);
+	let b = u.POINTS_CLOSED_PR_SPAM;
+	o.length >= 100 ? b = u.POINTS_CLOSED_PR_SPAM_EXTREME : o.length >= 25 && (b = u.POINTS_CLOSED_PR_SPAM_HIGH);
+	let x = m > 0 ? o.length / m : o.length, S = x >= u.CLOSED_PR_MIN_DENSITY;
+	if (s.size >= u.CLOSED_PR_REPO_SPREAD && S) return r.push({
 		label: `Closed PRs across many repositories`,
-		points: v,
+		points: b,
 		amplifiable: !0,
-		detail: `${i.length} PRs were closed across ${a.size} repositories in ${p}${_}.`
-	}), n;
-	if (a.size >= 2 && l <= u.CLOSED_PR_TIME_WINDOW_MINUTES) {
-		let e = i.length >= 100 ? u.POINTS_CLOSED_PR_SPAM_BURST_EXTREME : v;
-		n.push({
+		detail: `${o.length} PRs were closed across ${s.size} repositories in ${g}${y}.`,
+		data: [
+			{
+				label: `Closed PRs`,
+				value: o.length,
+				threshold: i
+			},
+			{
+				label: `Distinct repos`,
+				value: s.size,
+				threshold: u.CLOSED_PR_REPO_SPREAD
+			},
+			{
+				label: `Time span`,
+				value: g
+			},
+			{
+				label: `Density (PRs/day)`,
+				value: parseFloat(x.toFixed(1))
+			}
+		],
+		events: o
+	}), r;
+	if (s.size >= 2 && f <= u.CLOSED_PR_TIME_WINDOW_MINUTES) {
+		let e = o.length >= 100 ? u.POINTS_CLOSED_PR_SPAM_BURST_EXTREME : b;
+		r.push({
 			label: `Concentrated PR closures`,
 			points: e,
 			amplifiable: !0,
-			detail: `${i.length} PRs closed across ${a.size} repos in ${l}m (concentrated closing activity)`
+			detail: `${o.length} PRs closed across ${s.size} repos in ${f}m (concentrated closing activity)`,
+			data: [
+				{
+					label: `Closed PRs`,
+					value: o.length,
+					threshold: i
+				},
+				{
+					label: `Distinct repos`,
+					value: s.size
+				},
+				{
+					label: `Time span (min)`,
+					value: f,
+					threshold: u.CLOSED_PR_TIME_WINDOW_MINUTES
+				}
+			],
+			events: o
 		});
 	}
-	return n;
+	return r;
 }
-function k(e) {
+function N(e) {
 	let t = e.filter((e) => e.type === `IssueCommentEvent`), n = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`);
 	if (t.length === 0 || n.length === 0) return [];
 	let r = /* @__PURE__ */ new Map();
 	for (let e of t) {
 		let t = e.repo?.name;
-		t && (r.has(t) || r.set(t, []), r.get(t)?.push((0, h.default)(e.created_at)));
+		t && (r.has(t) || r.set(t, []), r.get(t)?.push({
+			event: e,
+			time: (0, h.default)(e.created_at)
+		}));
 	}
 	let i = /* @__PURE__ */ new Map();
 	for (let e of n) {
 		let t = e.repo?.name;
-		t && (i.has(t) || i.set(t, []), i.get(t)?.push((0, h.default)(e.created_at)));
+		t && (i.has(t) || i.set(t, []), i.get(t)?.push({
+			event: e,
+			time: (0, h.default)(e.created_at)
+		}));
 	}
-	let a = /* @__PURE__ */ new Set();
+	let a = /* @__PURE__ */ new Set(), o = [], s = Infinity;
 	for (let [e, t] of r) {
 		let n = i.get(e);
 		if (n) for (let r of t) for (let t of n) {
-			let n = t.diff(r, `minute`, !0);
-			n > 0 && n < u.COMMENT_BEFORE_PR_VERY_FAST_MINUTES && a.add(e);
+			let n = t.time.diff(r.time, `minute`, !0);
+			if (n > 0 && n < u.COMMENT_BEFORE_PR_VERY_FAST_MINUTES) {
+				a.add(e), o.push({
+					from: r.event,
+					to: t.event
+				});
+				let n = t.time.diff(r.time, `second`, !0);
+				n < s && (s = n);
+			}
 		}
 	}
 	if (a.size >= u.COMMENT_BEFORE_PR_VERY_FAST_MIN_REPOS) {
-		let e = A(a, r, i);
+		let e = s === Infinity ? 0 : Math.round(s), t = [...new Set(o.flatMap((e) => [e.from, e.to]))];
 		return [{
 			label: `Issue comment and PR within minutes`,
 			points: u.POINTS_COMMENT_BEFORE_PR_VERY_FAST,
 			amplifiable: !0,
-			detail: `Issue comment and PR to the same repository within ${u.COMMENT_BEFORE_PR_VERY_FAST_MINUTES} minutes, across ${a.size} repositories (shortest gap: ${e}s)`
+			detail: `Issue comment and PR to the same repository within ${u.COMMENT_BEFORE_PR_VERY_FAST_MINUTES} minutes, across ${a.size} repositories (shortest gap: ${e}s)`,
+			data: [
+				{
+					label: `Repos with fast comment→PR`,
+					value: a.size,
+					threshold: u.COMMENT_BEFORE_PR_VERY_FAST_MIN_REPOS
+				},
+				{
+					label: `Shortest gap (s)`,
+					value: e
+				},
+				{
+					label: `Window (min)`,
+					value: u.COMMENT_BEFORE_PR_VERY_FAST_MINUTES
+				}
+			],
+			events: t,
+			connections: o
 		}];
 	}
 	return [];
 }
-function A(e, t, n) {
-	let r = Infinity;
-	for (let i of e) {
-		let e = t.get(i) ?? [], a = n.get(i) ?? [];
-		for (let t of e) for (let e of a) {
-			let n = e.diff(t, `second`, !0);
-			n > 0 && n < r && (r = n);
-		}
-	}
-	return r === Infinity ? 0 : Math.round(r);
-}
-function j(e) {
+function P(e) {
 	let t = [];
 	if (e.length < u.MIN_EVENTS_FOR_ANALYSIS) return t;
 	let n = e.filter((e) => e.type === `IssueCommentEvent`);
@@ -20157,20 +20390,52 @@ function j(e) {
 			c.size > r && (r = c.size, i = o, a = t);
 		}
 		if (r >= u.ISSUE_COMMENT_SPRAY_EXTREME) {
-			let n = e[i]?.time, o = e[a]?.time, s = a - i + 1, c = o && n ? Math.round(o.diff(n, `minute`, !0)) : 0;
+			let n = e[i]?.time, o = e[a]?.time, s = a - i + 1, c = o && n ? Math.round(o.diff(n, `minute`, !0)) : 0, l = e.slice(i, a + 1).map((e) => e.event);
 			t.push({
 				label: `Rapid comments across repositories`,
 				points: u.POINTS_ISSUE_COMMENT_SPRAY_EXTREME,
 				amplifiable: !0,
-				detail: `${s} comments to ${r} different repos in ${c} minute${c === 1 ? `` : `s`}`
+				detail: `${s} comments to ${r} different repos in ${c} minute${c === 1 ? `` : `s`}`,
+				data: [
+					{
+						label: `Comments in window`,
+						value: s
+					},
+					{
+						label: `Distinct repos`,
+						value: r,
+						threshold: u.ISSUE_COMMENT_SPRAY_EXTREME
+					},
+					{
+						label: `Window duration (min)`,
+						value: c
+					}
+				],
+				events: l
 			});
 		} else if (r >= u.ISSUE_COMMENT_SPRAY_HIGH) {
-			let n = e[i]?.time, o = e[a]?.time, s = a - i + 1, c = o && n ? Math.round(o.diff(n, `minute`, !0)) : 0;
+			let n = e[i]?.time, o = e[a]?.time, s = a - i + 1, c = o && n ? Math.round(o.diff(n, `minute`, !0)) : 0, l = e.slice(i, a + 1).map((e) => e.event);
 			t.push({
 				label: `High comment frequency across repos`,
 				points: u.POINTS_ISSUE_COMMENT_SPRAY_HIGH,
 				amplifiable: !0,
-				detail: `${s} comments to ${r} different repos in ${c} minute${c === 1 ? `` : `s`}`
+				detail: `${s} comments to ${r} different repos in ${c} minute${c === 1 ? `` : `s`}`,
+				data: [
+					{
+						label: `Comments in window`,
+						value: s
+					},
+					{
+						label: `Distinct repos`,
+						value: r,
+						threshold: u.ISSUE_COMMENT_SPRAY_HIGH
+					},
+					{
+						label: `Window duration (min)`,
+						value: c
+					}
+				],
+				events: l
 			});
 		}
 	}
@@ -20190,26 +20455,58 @@ function j(e) {
 			c.size > n && (n = c.size, i = o, a = t);
 		}
 		if (n >= u.PR_COMMENT_SPRAY_EXTREME) {
-			let r = e[i]?.time, o = e[a]?.time, s = a - i + 1, c = o && r ? Math.round(o.diff(r, `minute`, !0)) : 0;
+			let r = e[i]?.time, o = e[a]?.time, s = a - i + 1, c = o && r ? Math.round(o.diff(r, `minute`, !0)) : 0, l = e.slice(i, a + 1).map((e) => e.event);
 			t.push({
 				label: `Rapid PR review comments`,
 				points: u.POINTS_PR_COMMENT_SPRAY_EXTREME,
 				amplifiable: !0,
-				detail: `${s} comments on ${n} different PRs in ${c} minute${c === 1 ? `` : `s`}`
+				detail: `${s} comments on ${n} different PRs in ${c} minute${c === 1 ? `` : `s`}`,
+				data: [
+					{
+						label: `Comments in window`,
+						value: s
+					},
+					{
+						label: `Distinct PRs`,
+						value: n,
+						threshold: u.PR_COMMENT_SPRAY_EXTREME
+					},
+					{
+						label: `Window duration (min)`,
+						value: c
+					}
+				],
+				events: l
 			});
 		} else if (n >= u.PR_COMMENT_SPRAY_HIGH) {
-			let r = e[i]?.time, o = e[a]?.time, s = a - i + 1, c = o && r ? Math.round(o.diff(r, `minute`, !0)) : 0;
+			let r = e[i]?.time, o = e[a]?.time, s = a - i + 1, c = o && r ? Math.round(o.diff(r, `minute`, !0)) : 0, l = e.slice(i, a + 1).map((e) => e.event);
 			t.push({
 				label: `High PR comment frequency`,
 				points: u.POINTS_PR_COMMENT_SPRAY_HIGH,
 				amplifiable: !0,
-				detail: `${s} comments on ${n} different PRs in ${c} minute${c === 1 ? `` : `s`}`
+				detail: `${s} comments on ${n} different PRs in ${c} minute${c === 1 ? `` : `s`}`,
+				data: [
+					{
+						label: `Comments in window`,
+						value: s
+					},
+					{
+						label: `Distinct PRs`,
+						value: n,
+						threshold: u.PR_COMMENT_SPRAY_HIGH
+					},
+					{
+						label: `Window duration (min)`,
+						value: c
+					}
+				],
+				events: l
 			});
 		}
 	}
 	return t;
 }
-function M(e) {
+function F(e) {
 	if (e.length === 0) return 0;
 	let t = e.reduce((e, t) => e + t, 0);
 	if (t === 0) return 0;
@@ -20220,116 +20517,271 @@ function M(e) {
 	}
 	return n;
 }
-function N(e) {
-	return e.length <= 1 ? 0 : M(e) / Math.log2(e.length);
+function I(e) {
+	return e.length <= 1 ? 0 : F(e) / Math.log2(e.length);
 }
-function P(e) {
+function L(e) {
 	let t = [];
 	if (e.length < u.MIN_EVENTS_FOR_ANALYSIS) return t;
 	let n = /* @__PURE__ */ new Map();
 	e.forEach((e) => {
 		e.type && n.set(e.type, (n.get(e.type) || 0) + 1);
 	});
-	let r = N(Array.from(n.values())), i = new Set(e.map((e) => e.type).filter((e) => e != null)), a = i.has(`IssueCommentEvent`) || i.has(`PullRequestReviewEvent`) || i.has(`PullRequestReviewCommentEvent`), o = i.has(`WatchEvent`);
+	let r = I(Array.from(n.values())), i = new Set(e.map((e) => e.type).filter((e) => e != null)), a = i.has(`IssueCommentEvent`) || i.has(`PullRequestReviewEvent`) || i.has(`PullRequestReviewCommentEvent`), o = i.has(`WatchEvent`);
 	return i.size <= 3 && r < .8 && !a && !o && t.push({
 		label: `Narrow activity focus`,
 		points: u.POINTS_LOW_DIVERSITY,
 		amplifiable: !0,
-		detail: `${i.size} event types (entropy: ${r.toFixed(2)}) without interpersonal interactions`
+		detail: `${i.size} event types (entropy: ${r.toFixed(2)}) without interpersonal interactions`,
+		data: [
+			{
+				label: `Distinct event types`,
+				value: i.size,
+				threshold: 3
+			},
+			{
+				label: `Activity entropy`,
+				value: parseFloat(r.toFixed(2)),
+				threshold: .8
+			},
+			{
+				label: `Has social interactions`,
+				value: !1
+			},
+			{
+				label: `Has watch activity`,
+				value: !1
+			}
+		],
+		events: e
 	}), t;
 }
 h.default.extend(p.default), h.default.extend(m.default);
-function F(e) {
+function R(e) {
 	let t = [], n = e.filter((e) => e.type === `ForkEvent`);
 	if (n.length < u.FORKS_HIGH) return t;
-	let r = n.map((e) => (0, h.default)(e.created_at)).sort((e, t) => e.valueOf() - t.valueOf()), i = (e) => {
-		let t = 0, n = 0;
-		for (let i = 0; i < r.length; i++) {
-			let a = r[i];
-			for (; a && a.diff(r[n], `hour`, !0) > e;) n++;
-			let o = i - n + 1;
-			t = Math.max(t, o);
+	let r = [...n].map((e) => ({
+		event: e,
+		time: (0, h.default)(e.created_at)
+	})).sort((e, t) => e.time.valueOf() - t.time.valueOf()), i = r.map((e) => e.time), a = (e) => {
+		let t = 0, n = 0, r = 0, a = 0;
+		for (let o = 0; o < i.length; o++) {
+			let s = i[o];
+			for (; s && s.diff(i[a], `hour`, !0) > e;) a++;
+			let c = o - a + 1;
+			c > t && (t = c, n = a, r = o);
 		}
-		return t;
-	}, a = i(24), o = i(48), s = i(72), c = null;
-	if (a >= u.FORKS_SURGE_EXTREME_HIGH ? c = {
-		label: `Extreme fork automation`,
-		points: u.POINTS_FORK_SURGE_EXTREME_HIGH,
-		amplifiable: !0,
-		detail: `${a} repositories forked in rapid succession (within 24 hours)`
-	} : a >= u.FORKS_SURGE_SEVERE ? c = {
-		label: `Severe fork surge`,
-		points: u.POINTS_FORK_SURGE_SEVERE,
-		amplifiable: !0,
-		detail: `${a} repositories forked in rapid succession (within 24 hours)`
-	} : a >= u.FORKS_EXTREME ? c = {
-		label: `Fork spike detected`,
-		points: u.POINTS_FORK_SURGE,
-		amplifiable: !0,
-		detail: `Burst of ${a} fork events in a single 24-hour window`
-	} : a >= u.FORKS_HIGH ? c = {
-		label: `Multiple forks`,
-		points: u.POINTS_MULTIPLE_FORKS,
-		amplifiable: !0,
-		detail: `${a} repositories forked in a single 24-hour window`
-	} : o >= u.FORKS_SURGE_48H ? c = {
-		label: `Multi-day fork surge`,
-		points: u.POINTS_FORK_SURGE_48H,
-		amplifiable: !0,
-		detail: `Concentrated burst: ${o} repositories forked over 2 days`
-	} : s >= u.FORKS_SURGE_72H && (c = {
-		label: `Severe multi-day fork surge`,
-		points: u.POINTS_FORK_SURGE_72H,
-		amplifiable: !0,
-		detail: `Rapid burst: ${s} repositories forked over 72 hours`
-	}), c && t.push(c), r.length > 0 && !c) {
-		let e = r[0], i = r[r.length - 1];
-		if (e && i) {
-			let r = Math.max(1, i.diff(e, `day`)), a = n.length / r;
-			a >= u.FORKS_PER_DAY_HIGH && r >= 3 && t.push({
+		return {
+			count: t,
+			startIdx: n,
+			endIdx: r
+		};
+	}, o = a(24), s = a(48), c = a(72), l = o.count, d = s.count, f = c.count, p = [];
+	if (l >= u.FORKS_SURGE_EXTREME_HIGH) {
+		let e = r.slice(o.startIdx, o.endIdx + 1).map((e) => e.event);
+		p.push({
+			label: `Extreme fork automation`,
+			points: u.POINTS_FORK_SURGE_EXTREME_HIGH,
+			amplifiable: !0,
+			detail: `${l} repositories forked in rapid succession (within 24 hours)`,
+			data: [{
+				label: `Forks in 24h window`,
+				value: l,
+				threshold: u.FORKS_SURGE_EXTREME_HIGH
+			}, {
+				label: `Total forks observed`,
+				value: n.length
+			}],
+			events: e
+		});
+	} else if (l >= u.FORKS_SURGE_SEVERE) {
+		let e = r.slice(o.startIdx, o.endIdx + 1).map((e) => e.event);
+		p.push({
+			label: `Severe fork surge`,
+			points: u.POINTS_FORK_SURGE_SEVERE,
+			amplifiable: !0,
+			detail: `${l} repositories forked in rapid succession (within 24 hours)`,
+			data: [{
+				label: `Forks in 24h window`,
+				value: l,
+				threshold: u.FORKS_SURGE_SEVERE
+			}, {
+				label: `Total forks observed`,
+				value: n.length
+			}],
+			events: e
+		});
+	} else if (l >= u.FORKS_EXTREME) {
+		let e = r.slice(o.startIdx, o.endIdx + 1).map((e) => e.event);
+		p.push({
+			label: `Fork spike detected`,
+			points: u.POINTS_FORK_SURGE,
+			amplifiable: !0,
+			detail: `Burst of ${l} fork events in a single 24-hour window`,
+			data: [{
+				label: `Forks in 24h window`,
+				value: l,
+				threshold: u.FORKS_EXTREME
+			}, {
+				label: `Total forks observed`,
+				value: n.length
+			}],
+			events: e
+		});
+	} else if (l >= u.FORKS_HIGH) {
+		let e = r.slice(o.startIdx, o.endIdx + 1).map((e) => e.event);
+		p.push({
+			label: `Multiple forks`,
+			points: u.POINTS_MULTIPLE_FORKS,
+			amplifiable: !0,
+			detail: `${l} repositories forked in a single 24-hour window`,
+			data: [{
+				label: `Forks in 24h window`,
+				value: l,
+				threshold: u.FORKS_HIGH
+			}, {
+				label: `Total forks observed`,
+				value: n.length
+			}],
+			events: e
+		});
+	}
+	if (d >= u.FORKS_SURGE_48H) {
+		let e = r.slice(s.startIdx, s.endIdx + 1).map((e) => e.event);
+		p.push({
+			label: `Multi-day fork surge`,
+			points: u.POINTS_FORK_SURGE_48H,
+			amplifiable: !0,
+			detail: `Concentrated burst: ${d} repositories forked over 2 days`,
+			data: [{
+				label: `Forks in 48h window`,
+				value: d,
+				threshold: u.FORKS_SURGE_48H
+			}, {
+				label: `Total forks observed`,
+				value: n.length
+			}],
+			events: e
+		});
+	}
+	if (f >= u.FORKS_SURGE_72H) {
+		let e = r.slice(c.startIdx, c.endIdx + 1).map((e) => e.event);
+		p.push({
+			label: `Severe multi-day fork surge`,
+			points: u.POINTS_FORK_SURGE_72H,
+			amplifiable: !0,
+			detail: `Rapid burst: ${f} repositories forked over 72 hours`,
+			data: [{
+				label: `Forks in 72h window`,
+				value: f,
+				threshold: u.FORKS_SURGE_72H
+			}, {
+				label: `Total forks observed`,
+				value: n.length
+			}],
+			events: e
+		});
+	}
+	let m = p.reduce((e, t) => !e || t.points > e.points ? t : e, null);
+	if (m && t.push(m), i.length > 0 && !m) {
+		let e = i[0], r = i[i.length - 1];
+		if (e && r) {
+			let i = Math.max(1, r.diff(e, `day`)), a = n.length / i;
+			a >= u.FORKS_PER_DAY_HIGH && i >= 3 && t.push({
 				label: `Sustained fork rate`,
 				points: u.POINTS_FORKS_PER_DAY_HIGH,
 				amplifiable: !0,
-				detail: `Average of ${a.toFixed(1)} forks per day over ${r} days (${n.length} total)`
+				detail: `Average of ${a.toFixed(1)} forks per day over ${i} days (${n.length} total)`,
+				data: [
+					{
+						label: `Forks per day`,
+						value: parseFloat(a.toFixed(1)),
+						threshold: u.FORKS_PER_DAY_HIGH
+					},
+					{
+						label: `Activity span (days)`,
+						value: i
+					},
+					{
+						label: `Total forks`,
+						value: n.length
+					}
+				],
+				events: n
 			});
 		}
 	}
-	let l = /* @__PURE__ */ new Set();
+	let g = /* @__PURE__ */ new Set();
 	if (n.forEach((e) => {
-		l.add(h.default.utc(e.created_at).format(`YYYY-MM-DD`));
-	}), l.size >= u.CONSECUTIVE_FORK_DAYS && !c) {
-		let e = Array.from(l).map((e) => (0, h.default)(e, `YYYY-MM-DD`)).sort((e, t) => e.valueOf() - t.valueOf()), r = 1, i = 1;
+		g.add(h.default.utc(e.created_at).format(`YYYY-MM-DD`));
+	}), g.size >= u.CONSECUTIVE_FORK_DAYS && !m) {
+		let e = Array.from(g).map((e) => (0, h.default)(e, `YYYY-MM-DD`)).sort((e, t) => e.valueOf() - t.valueOf()), r = 1, i = 1, a = 0, o = 0;
 		for (let t = 1; t < e.length; t++) {
-			let n = e[t - 1], a = e[t];
-			a && n && a.diff(n, `day`) === 1 ? (i++, r = Math.max(r, i)) : i = 1;
+			let n = e[t - 1], s = e[t];
+			s && n && s.diff(n, `day`) === 1 ? (i++, a = t, i > r && (r = i, o = a)) : (i = 1, a = t);
 		}
 		if (r >= u.CONSECUTIVE_FORK_DAYS) {
-			let e = l.size;
+			let i = e[o - r + 1], a = e[o], s = n.filter((e) => {
+				let t = h.default.utc(e.created_at).format(`YYYY-MM-DD`);
+				return i && a && !(0, h.default)(t).isBefore(i) && !(0, h.default)(t).isAfter(a);
+			}), c = g.size;
 			t.push({
 				label: `Extended forking pattern`,
 				points: u.POINTS_CONSECUTIVE_FORK_DAYS,
 				amplifiable: !0,
-				detail: `Forking activity on ${e} days (${r} consecutive), ${n.length} repositories total`
+				detail: `Forking activity on ${c} days (${r} consecutive), ${n.length} repositories total`,
+				data: [
+					{
+						label: `Consecutive fork days`,
+						value: r,
+						threshold: u.CONSECUTIVE_FORK_DAYS
+					},
+					{
+						label: `Total active days`,
+						value: c
+					},
+					{
+						label: `Total forks`,
+						value: n.length
+					}
+				],
+				events: s
 			});
 		}
 	}
-	let d = new Set(n.map((e) => e.repo?.name).filter((e) => e !== void 0));
-	if (d.size >= u.FORK_REPO_DIVERSITY_HIGH && !c) {
-		let e = ``;
-		if (r.length > 1) {
-			let t = r[0], n = r[r.length - 1].diff(t, `day`);
-			e = n > 0 ? ` over ${n} days` : ` in a short timeframe`;
+	let _ = new Set(n.map((e) => e.repo?.name).filter((e) => e !== void 0));
+	if (_.size >= u.FORK_REPO_DIVERSITY_HIGH && !m) {
+		let e = ``, r = 0;
+		if (i.length > 1) {
+			let t = i[0];
+			r = i[i.length - 1].diff(t, `day`), e = r > 0 ? ` over ${r} days` : ` in a short timeframe`;
 		}
 		t.push({
 			label: `Fork scatter pattern`,
 			points: u.POINTS_FORK_DIVERSITY,
 			amplifiable: !0,
-			detail: `Forks spread across ${d.size} different repositories${e}`
+			detail: `Forks spread across ${_.size} different repositories${e}`,
+			data: [
+				{
+					label: `Distinct repos forked`,
+					value: _.size,
+					threshold: u.FORK_REPO_DIVERSITY_HIGH
+				},
+				{
+					label: `Total forks`,
+					value: n.length
+				},
+				{
+					label: `Activity span (days)`,
+					value: r
+				}
+			],
+			events: n
 		});
 	}
 	return t;
 }
-function I(e) {
+function z(e) {
 	let t = [], n = e.filter((e) => e.type === `ForkEvent`);
 	if (n.length < u.FORK_COMBINED_ACTIVITY_MIN || e.length < u.MIN_EVENTS_FOR_ANALYSIS) return t;
 	let r = new Set(n.map((e) => e.repo?.name).filter((e) => e !== void 0)), i = e.filter((e) => e.type === `CreateEvent` && e.payload?.ref_type === `branch`).filter((e) => r.has(e.repo?.name || ``)), a = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`).filter((e) => r.has(e.repo?.name || ``));
@@ -20341,14 +20793,37 @@ function I(e) {
 				label: `Chained automation pattern`,
 				points: u.POINTS_FORK_COMBINED_ACTIVITY,
 				amplifiable: !0,
-				detail: `${e} chained repository operations: ${n.length} forks followed by ${i.length} branches, then ${a.length} pull requests (based on available event history)`
+				detail: `${e} chained repository operations: ${n.length} forks followed by ${i.length} branches, then ${a.length} pull requests (based on available event history)`,
+				data: [
+					{
+						label: `Fork events`,
+						value: n.length
+					},
+					{
+						label: `Branch creates in forked repos`,
+						value: i.length
+					},
+					{
+						label: `PRs from forked repos`,
+						value: a.length
+					},
+					{
+						label: `Total chained operations`,
+						value: e
+					}
+				],
+				events: [
+					...n,
+					...i,
+					...a
+				]
 			});
 		}
 	}
 	return t;
 }
 h.default.extend(m.default);
-function L(e) {
+function B(e) {
 	let t = [];
 	if (e.length < u.MIN_EVENTS_FOR_ANALYSIS) return t;
 	let n = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`), r = n.map((e) => (0, h.default)(e.created_at)), i = h.default.max(r) || (0, h.default)(), a = i.subtract(1, `day`), o = i.subtract(1, `week`), s = n.filter((e) => (0, h.default)(e.created_at).isAfter(a)), c = n.filter((e) => (0, h.default)(e.created_at).isAfter(o));
@@ -20356,17 +20831,35 @@ function L(e) {
 		label: `Very high PR volume (daily)`,
 		points: u.POINTS_PRS_DAY_EXTREME,
 		amplifiable: !0,
-		detail: `${s.length} PRs in the last 24 hours`
+		detail: `${s.length} PRs in the last 24 hours`,
+		data: [{
+			label: `PRs in last 24h`,
+			value: s.length,
+			threshold: u.PRS_DAY_EXTREME
+		}],
+		events: s
 	}), c.length >= u.PRS_WEEK_EXTREME ? t.push({
 		label: `Very high PR volume (weekly)`,
 		points: u.POINTS_PRS_WEEK_EXTREME,
 		amplifiable: !0,
-		detail: `${c.length} PRs in the last 7 days`
+		detail: `${c.length} PRs in the last 7 days`,
+		data: [{
+			label: `PRs in last 7 days`,
+			value: c.length,
+			threshold: u.PRS_WEEK_EXTREME
+		}],
+		events: c
 	}) : c.length >= u.PRS_WEEK_VERY_HIGH && t.push({
 		label: `High PR volume (weekly)`,
 		points: u.POINTS_PRS_WEEK_VERY_HIGH,
 		amplifiable: !0,
-		detail: `${c.length} PRs in the last 7 days`
+		detail: `${c.length} PRs in the last 7 days`,
+		data: [{
+			label: `PRs in last 7 days`,
+			value: c.length,
+			threshold: u.PRS_WEEK_VERY_HIGH
+		}],
+		events: c
 	}), n.length >= u.PRS_SPAM_VOLUME && !t.some((e) => e.label === `Very high PR volume (daily)` || e.label === `Very high PR volume (weekly)` || e.label === `High PR volume (weekly)`)) {
 		let e = new Set(n.map((e) => e.repo?.name).filter((e) => e !== void 0));
 		if (e.size >= u.REPOS_SPAM_SPREAD) {
@@ -20375,13 +20868,34 @@ function L(e) {
 				label: `Distributed PR pattern`,
 				points: u.POINTS_PR_SPAM_DISTRIBUTED,
 				amplifiable: !0,
-				detail: `${n.length} PRs spread across ${e.size} different repositories${s > 0 ? ` (${l.toFixed(1)} PRs/week)` : ``}`
+				detail: `${n.length} PRs spread across ${e.size} different repositories${s > 0 ? ` (${l.toFixed(1)} PRs/week)` : ``}`,
+				data: [
+					{
+						label: `Total PRs`,
+						value: n.length,
+						threshold: u.PRS_SPAM_VOLUME
+					},
+					{
+						label: `Distinct repos targeted`,
+						value: e.size,
+						threshold: u.REPOS_SPAM_SPREAD
+					},
+					{
+						label: `PRs per week`,
+						value: c > 0 ? parseFloat(l.toFixed(1)) : 0
+					},
+					{
+						label: `PRs in last 30 days`,
+						value: f
+					}
+				],
+				events: n
 			});
 		}
 	}
 	return t;
 }
-function R(e) {
+function V(e) {
 	let t = [], n = e.filter((e) => e.type === `PushEvent`).sort((e, t) => (0, h.default)(e.created_at).valueOf() - (0, h.default)(t.created_at).valueOf());
 	if (n.length < u.MIN_EVENTS_FOR_ANALYSIS) return t;
 	let r = 0, i = /* @__PURE__ */ new Set();
@@ -20389,14 +20903,34 @@ function R(e) {
 		let t = n[e - 1], a = n[e];
 		!t || !a || t.repo?.name !== a.repo?.name || (0, h.default)(a.created_at).diff((0, h.default)(t.created_at), `second`) <= u.TIGHT_COMMIT_SECONDS && (r++, i.add(e - 1), i.add(e));
 	}
-	return r >= u.TIGHT_COMMIT_THRESHOLD_GLOBAL && t.push({
-		label: `High push frequency`,
-		points: u.POINTS_TIGHT_BURST,
-		amplifiable: !0,
-		detail: `${i.size} pushes to the same repository within very short intervals`
-	}), t;
+	if (r >= u.TIGHT_COMMIT_THRESHOLD_GLOBAL) {
+		let e = Math.round(u.TIGHT_COMMIT_SECONDS / 60), a = n.filter((e, t) => i.has(t));
+		t.push({
+			label: `High push frequency`,
+			points: u.POINTS_TIGHT_BURST,
+			amplifiable: !0,
+			detail: `${r} consecutive same-repo push pairs within ${e} min of each other (${i.size} pushes involved)`,
+			data: [
+				{
+					label: `Rapid push pairs`,
+					value: r,
+					threshold: u.TIGHT_COMMIT_THRESHOLD_GLOBAL
+				},
+				{
+					label: `Pushes involved`,
+					value: i.size
+				},
+				{
+					label: `Max interval (s)`,
+					value: u.TIGHT_COMMIT_SECONDS
+				}
+			],
+			events: a
+		});
+	}
+	return t;
 }
-function z(e, t) {
+function H(e, t) {
 	let n = [], r = t >= u.AGE_ESTABLISHED_ACCOUNT ? u.RAPID_PR_SPAM_MIN_PRS_ESTABLISHED : u.RAPID_PR_SPAM_MIN_PRS, i = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`);
 	if (i.length < r) return n;
 	let a = i.map((e) => ({
@@ -20407,50 +20941,89 @@ function z(e, t) {
 		let t = e.event.repo?.name;
 		t && (o.has(t) || o.set(t, []), o.get(t)?.push(e));
 	}
-	let s = 0, c = 0, l = ``;
+	let s = 0, c = 0, l = ``, d = 0, f = 0;
 	for (let [e, t] of o.entries()) {
 		if (t.length < r) continue;
-		let n = 0, i = 0;
-		for (let e = 0; e < t.length - 1; e++) {
-			let r = t[e + 1].time.diff(t[e].time, `second`);
-			r <= u.BRANCH_PR_TIME_WINDOW_SECONDS && (n++, i = Math.max(i, r));
+		let n = 0, i = 0, a = 0;
+		for (let r = 0; r < t.length - 1; r++) {
+			let o = t[r + 1].time.diff(t[r].time, `second`);
+			o <= u.BRANCH_PR_TIME_WINDOW_SECONDS ? (i++, a = Math.max(a, o)) : (n = r + 1, i = 0, a = 0), i > s && (s = i, c = a, l = e, d = n, f = r + 1);
 		}
-		n > s && (s = n, c = i, l = e);
 	}
-	return s >= r - 1 && n.push({
-		label: `Rapid PRs to repository`,
-		points: u.POINTS_RAPID_PR_SPAM,
-		amplifiable: !0,
-		detail: `${s + 1} PRs opened to ${l} within ${c}s intervals`
-	}), n;
+	if (s >= r - 1) {
+		let e = (o.get(l) ?? []).slice(d, f + 1).map((e) => e.event);
+		n.push({
+			label: `Rapid PRs to repository`,
+			points: u.POINTS_RAPID_PR_SPAM,
+			amplifiable: !0,
+			detail: `${s + 1} PRs opened to ${l} within ${c}s intervals`,
+			data: [
+				{
+					label: `Rapid PRs to same repo`,
+					value: s + 1,
+					threshold: r
+				},
+				{
+					label: `Target repository`,
+					value: l
+				},
+				{
+					label: `Max interval between PRs (s)`,
+					value: c,
+					threshold: u.BRANCH_PR_TIME_WINDOW_SECONDS
+				}
+			],
+			events: e
+		});
+	}
+	return n;
 }
-function B(e) {
+function U(e) {
 	let t = [];
 	if (e.length < u.MIN_EVENTS_FOR_ANALYSIS) return t;
 	let n = e.filter((e) => e.type === `CreateEvent` && e.payload?.ref_type === `repository`);
 	if (n.length >= u.CREATE_EVENTS_MIN) {
-		let e = n.map((e) => (0, h.default)(e.created_at)).sort((e, t) => e.valueOf() - t.valueOf()), r = 0, i = 0;
-		for (let t = 0; t < e.length; t++) {
-			let n = e[t];
-			for (; n && n.diff(e[i], `hour`, !0) > 24;) i++;
-			let a = t - i + 1;
-			r = Math.max(r, a);
+		let e = [...n].sort((e, t) => (0, h.default)(e.created_at).valueOf() - (0, h.default)(t.created_at).valueOf()), r = e.map((e) => (0, h.default)(e.created_at)), i = 0, a = 0, o = 0, s = 0;
+		for (let e = 0; e < r.length; e++) {
+			let t = r[e];
+			for (; t && t.diff(r[s], `hour`, !0) > 24;) s++;
+			let n = e - s + 1;
+			n > i && (i = n, a = s, o = e);
 		}
-		r >= u.CREATE_BURST_EXTREME ? t.push({
+		let c = e.slice(a, o + 1);
+		i >= u.CREATE_BURST_EXTREME ? t.push({
 			label: `Concentrated repository creation`,
 			points: u.POINTS_CREATE_BURST_EXTREME,
 			amplifiable: !0,
-			detail: `${r} repositories created in a short timeframe (within 24 hours)`
-		}) : r >= u.CREATE_BURST_HIGH && t.push({
+			detail: `${i} repositories created in a short timeframe (within 24 hours)`,
+			data: [{
+				label: `Repos created in 24h`,
+				value: i,
+				threshold: u.CREATE_BURST_EXTREME
+			}, {
+				label: `Total repo creations`,
+				value: n.length
+			}],
+			events: c
+		}) : i >= u.CREATE_BURST_HIGH && t.push({
 			label: `Frequent repository creation`,
 			points: u.POINTS_CREATE_BURST_HIGH,
 			amplifiable: !0,
-			detail: `${r} repositories created in a short timeframe (within 24 hours)`
+			detail: `${i} repositories created in a short timeframe (within 24 hours)`,
+			data: [{
+				label: `Repos created in 24h`,
+				value: i,
+				threshold: u.CREATE_BURST_HIGH
+			}, {
+				label: `Total repo creations`,
+				value: n.length
+			}],
+			events: c
 		});
 	}
 	return t;
 }
-function V(e) {
+function W(e) {
 	let t = [], n = e.filter((e) => e.type === `WatchEvent`);
 	if (n.length < u.WATCH_SPAM_MIN_EVENTS) return t;
 	let r = n.map((e) => ({
@@ -20464,21 +21037,53 @@ function V(e) {
 		n.size > i && (i = n.size, a = s, o = e);
 	}
 	if (i < u.WATCH_SPAM_REPOS_HIGH) return t;
-	let c = r[a]?.time, l = r[o]?.time, d = l && c ? Math.round(l.diff(c, `hour`, !0)) : 0;
+	let c = r[a]?.time, l = r[o]?.time, d = l && c ? Math.round(l.diff(c, `hour`, !0)) : 0, f = r.slice(a, o + 1).map((e) => e.event);
 	return i >= u.WATCH_SPAM_REPOS_EXTREME ? t.push({
 		label: `Very high starring rate`,
 		points: u.POINTS_WATCH_SPAM_EXTREME,
 		amplifiable: !0,
-		detail: `${i} repositories starred within ${d} hour${d === 1 ? `` : `s`}`
+		detail: `${i} repositories starred within ${d} hour${d === 1 ? `` : `s`}`,
+		data: [
+			{
+				label: `Repos starred in window`,
+				value: i,
+				threshold: u.WATCH_SPAM_REPOS_EXTREME
+			},
+			{
+				label: `Window duration (hours)`,
+				value: d
+			},
+			{
+				label: `Total star events`,
+				value: n.length
+			}
+		],
+		events: f
 	}) : t.push({
 		label: `High starring rate`,
 		points: u.POINTS_WATCH_SPAM_HIGH,
 		amplifiable: !0,
-		detail: `${i} repositories starred within ${d} hour${d === 1 ? `` : `s`}`
+		detail: `${i} repositories starred within ${d} hour${d === 1 ? `` : `s`}`,
+		data: [
+			{
+				label: `Repos starred in window`,
+				value: i,
+				threshold: u.WATCH_SPAM_REPOS_HIGH
+			},
+			{
+				label: `Window duration (hours)`,
+				value: d
+			},
+			{
+				label: `Total star events`,
+				value: n.length
+			}
+		],
+		events: f
 	}), t;
 }
-h.default.extend(m.default);
-function H(e, t, n, r) {
+h.default.extend(m.default), h.default.extend(p.default);
+function G(e, t, n, r) {
 	let i = [];
 	if (!n || e.length < u.MIN_EVENTS_FOR_ANALYSIS) return i;
 	let a = r.toLowerCase(), o = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`);
@@ -20489,28 +21094,60 @@ function H(e, t, n, r) {
 			r >= u.ACTIVITY_DENSITY_EXTREME / 2 ? i.push({
 				label: `Very high PR volume`,
 				points: u.POINTS_EXTREME_ACTIVITY_DENSITY + 10,
-				detail: `${o.length} PRs in ${e} day${e === 1 ? `` : `s`}`
+				detail: `${o.length} PRs in ${e} day${e === 1 ? `` : `s`}`,
+				data: [
+					{
+						label: `PRs opened`,
+						value: o.length
+					},
+					{
+						label: `Over (days)`,
+						value: e
+					},
+					{
+						label: `PRs per day`,
+						value: parseFloat(r.toFixed(1)),
+						threshold: u.ACTIVITY_DENSITY_EXTREME / 2
+					}
+				],
+				events: o
 			}) : r >= u.ACTIVITY_DENSITY_HIGH / 2 && i.push({
 				label: `High PR volume`,
 				points: u.POINTS_HIGH_ACTIVITY_DENSITY + 5,
-				detail: `${o.length} PRs in ${e} day${e === 1 ? `` : `s`}`
+				detail: `${o.length} PRs in ${e} day${e === 1 ? `` : `s`}`,
+				data: [
+					{
+						label: `PRs opened`,
+						value: o.length
+					},
+					{
+						label: `Over (days)`,
+						value: e
+					},
+					{
+						label: `PRs per day`,
+						value: parseFloat(r.toFixed(1)),
+						threshold: u.ACTIVITY_DENSITY_HIGH / 2
+					}
+				],
+				events: o
 			});
 		}
 	}
 	let s = new Set([`PushEvent`, `PullRequestEvent`]), c = e.filter((e) => e.type && s.has(e.type) || e.type === `PullRequestReviewEvent` || e.type === `PullRequestReviewCommentEvent`), l = /* @__PURE__ */ new Map();
 	c.forEach((e) => {
 		if (!e.created_at) return;
-		let t = new Date(e.created_at), n = t.toISOString().slice(0, 10);
+		let t = (0, h.default)(e.created_at).utc(), n = t.format(`YYYY-MM-DD`);
 		l.has(n) || l.set(n, []), l.get(n)?.push(t);
 	});
 	let d = [];
 	if (l.forEach((e, t) => {
 		let n = /* @__PURE__ */ new Map();
 		e.forEach((e) => {
-			let t = e.getUTCHours();
+			let t = e.hour();
 			n.set(t, (n.get(t) || 0) + 1);
 		});
-		let r = n.size, i = N(Array.from(n.values()));
+		let r = n.size, i = I(Array.from(n.values()));
 		r >= u.HOURS_PER_DAY_INHUMAN && i > .8 && d.push(t);
 	}), d.length >= u.CONSECUTIVE_INHUMAN_DAYS_EXTREME) {
 		d.sort();
@@ -20519,56 +21156,156 @@ function H(e, t, n, r) {
 			let r = (0, h.default)(d[n - 1]);
 			(0, h.default)(d[n]).diff(r, `day`) === 1 ? (e++, t = Math.max(t, e)) : e = 1;
 		}
-		t >= u.CONSECUTIVE_INHUMAN_DAYS_EXTREME ? i.push({
-			label: `Extended daily coding`,
-			points: u.POINTS_NONSTOP_ACTIVITY,
-			detail: `${t} days in a row with ${u.HOURS_PER_DAY_INHUMAN}+ hours of coding`
-		}) : d.length >= u.FREQUENT_MARATHON_DAYS && i.push({
-			label: `Frequent long coding days`,
-			points: u.POINTS_FREQUENT_MARATHON,
-			detail: `${d.length} days with ${u.HOURS_PER_DAY_INHUMAN}+ hours of coding and uniform hourly distribution`
-		});
+		if (t >= u.CONSECUTIVE_INHUMAN_DAYS_EXTREME) {
+			let e = c.filter((e) => {
+				let t = (0, h.default)(e.created_at ?? ``).utc().format(`YYYY-MM-DD`);
+				return d.includes(t);
+			});
+			i.push({
+				label: `Extended daily coding`,
+				points: u.POINTS_NONSTOP_ACTIVITY,
+				detail: `${t} days in a row with ${u.HOURS_PER_DAY_INHUMAN}+ hours of coding`,
+				data: [
+					{
+						label: `Consecutive inhuman days`,
+						value: t,
+						threshold: u.CONSECUTIVE_INHUMAN_DAYS_EXTREME
+					},
+					{
+						label: `Hours/day threshold`,
+						value: u.HOURS_PER_DAY_INHUMAN
+					},
+					{
+						label: `Total uniform days`,
+						value: d.length
+					}
+				],
+				events: e
+			});
+		} else if (d.length >= u.FREQUENT_MARATHON_DAYS) {
+			let e = c.filter((e) => {
+				let t = (0, h.default)(e.created_at ?? ``).utc().format(`YYYY-MM-DD`);
+				return d.includes(t);
+			});
+			i.push({
+				label: `Frequent long coding days`,
+				points: u.POINTS_FREQUENT_MARATHON,
+				detail: `${d.length} days with ${u.HOURS_PER_DAY_INHUMAN}+ hours of coding and uniform hourly distribution`,
+				data: [{
+					label: `Uniform-distribution days`,
+					value: d.length,
+					threshold: u.FREQUENT_MARATHON_DAYS
+				}, {
+					label: `Hours/day threshold`,
+					value: u.HOURS_PER_DAY_INHUMAN
+				}],
+				events: e
+			});
+		}
 	}
-	let f = new Set(e.map((e) => e.repo?.name).filter((e) => e ? e.split(`/`)[0]?.toLowerCase() !== a : !1));
+	let f = new Set(e.map((e) => e.repo?.name).filter((e) => e ? e.split(`/`)[0]?.toLowerCase() !== a : !1)), p = e.filter((e) => {
+		let t = e.repo?.name?.split(`/`)[0]?.toLowerCase();
+		return t && t !== a;
+	});
 	f.size >= u.REPO_SPREAD_EXTREME ? i.push({
 		label: `Highly distributed activity`,
 		points: u.POINTS_EXTREME_REPO_SPREAD_YOUNG,
-		detail: `Activity spread across ${f.size} external repositories`
+		detail: `Activity spread across ${f.size} external repositories`,
+		data: [{
+			label: `Distinct external repos`,
+			value: f.size,
+			threshold: u.REPO_SPREAD_EXTREME
+		}, {
+			label: `External events`,
+			value: p.length
+		}],
+		events: p
 	}) : f.size >= u.REPO_SPREAD_HIGH && i.push({
 		label: `Distributed activity`,
 		points: u.POINTS_WIDE_REPO_SPREAD_YOUNG,
-		detail: `Activity spread across ${f.size} external repositories`
+		detail: `Activity spread across ${f.size} external repositories`,
+		data: [{
+			label: `Distinct external repos`,
+			value: f.size,
+			threshold: u.REPO_SPREAD_HIGH
+		}, {
+			label: `External events`,
+			value: p.length
+		}],
+		events: p
 	});
-	let p = o.filter((e) => {
+	let m = o.filter((e) => {
 		let t = e.repo?.name?.split(`/`)[0]?.toLowerCase();
 		return t && t !== a;
-	}), m = (0, h.default)(), g = m.subtract(1, `week`), _ = m.subtract(1, `day`), v = p.filter((e) => (0, h.default)(e.created_at).isAfter(g)), y = p.filter((e) => (0, h.default)(e.created_at).isAfter(_));
-	if (y.length >= u.PRS_TODAY_EXTREME ? i.push({
+	}), g = (0, h.default)(), _ = g.subtract(1, `week`), v = g.subtract(1, `day`), y = m.filter((e) => (0, h.default)(e.created_at).isAfter(_)), b = m.filter((e) => (0, h.default)(e.created_at).isAfter(v));
+	if (b.length >= u.PRS_TODAY_EXTREME ? i.push({
 		label: `High PR volume in the past 24 hours`,
 		points: u.POINTS_PR_BURST,
-		detail: `${y.length} PRs to other repos in the last 24 hours`
-	}) : v.length >= u.PRS_WEEK_HIGH && i.push({
+		detail: `${b.length} PRs to other repos in the last 24 hours`,
+		data: [{
+			label: `PRs in last 24h`,
+			value: b.length,
+			threshold: u.PRS_TODAY_EXTREME
+		}],
+		events: b
+	}) : y.length >= u.PRS_WEEK_HIGH && i.push({
 		label: `High PR volume during last week`,
 		points: u.POINTS_HIGH_PR_FREQUENCY,
-		detail: `${v.length} PRs to other repos this week`
-	}), p.length >= u.EXTERNAL_PRS_MIN && t < u.PERSONAL_REPOS_LOW) {
-		let e = `${p.length} PRs to other repos, but only ${t} of their own`;
-		t === 0 && (e = `${p.length} PRs to other repos, none of their own`), i.push({
+		detail: `${y.length} PRs to other repos this week`,
+		data: [{
+			label: `PRs in last 7 days`,
+			value: y.length,
+			threshold: u.PRS_WEEK_HIGH
+		}],
+		events: y
+	}), m.length >= u.EXTERNAL_PRS_MIN && t < u.PERSONAL_REPOS_LOW) {
+		let e = `${m.length} PRs to other repos, but only ${t} of their own`;
+		t === 0 && (e = `${m.length} PRs to other repos, none of their own`), i.push({
 			label: `Primarily external contributions`,
 			points: u.POINTS_PR_ONLY_CONTRIBUTOR,
-			detail: e
+			detail: e,
+			data: [{
+				label: `PRs to external repos`,
+				value: m.length,
+				threshold: u.EXTERNAL_PRS_MIN
+			}, {
+				label: `Own repos`,
+				value: t,
+				threshold: u.PERSONAL_REPOS_LOW
+			}],
+			events: m
 		});
 	}
-	let b = e.filter((e) => {
+	let x = e.filter((e) => {
 		let t = e.repo?.name?.split(`/`)[0]?.toLowerCase();
 		return t && t !== a;
-	}), x = b.length / e.length;
-	b.length > 0 && x >= u.FOREIGN_RATIO_HIGH && t < u.PERSONAL_REPOS_LOW && i.push({
+	}), S = x.length / e.length;
+	x.length > 0 && S >= u.FOREIGN_RATIO_HIGH && t < u.PERSONAL_REPOS_LOW && i.push({
 		label: `Mostly external activity`,
 		points: u.POINTS_EXTERNAL_FOCUS,
-		detail: `${Math.round(x * 100)}% of activity on other people's repos`
+		detail: `${Math.round(S * 100)}% of activity on other people's repos`,
+		data: [
+			{
+				label: `External activity ratio`,
+				value: `${Math.round(S * 100)}%`,
+				threshold: `${Math.round(u.FOREIGN_RATIO_HIGH * 100)}%`
+			},
+			{
+				label: `External events`,
+				value: x.length
+			},
+			{
+				label: `Total events`,
+				value: e.length
+			},
+			{
+				label: `Own repos`,
+				value: t
+			}
+		],
+		events: x
 	});
-	let S = new Set([
+	let C = new Set([
 		`IssuesEvent`,
 		`IssueCommentEvent`,
 		`WatchEvent`,
@@ -20576,22 +21313,45 @@ function H(e, t, n, r) {
 		`PullRequestReviewCommentEvent`,
 		`CommitCommentEvent`
 	]);
-	return !e.some((e) => e.type && S.has(e.type)) && p.length >= 1 && i.push({
+	return !e.some((e) => e.type && C.has(e.type)) && m.length >= 1 && i.push({
 		label: `Limited community engagement`,
 		points: u.POINTS_LIMITED_ENGAGEMENT,
 		amplifiable: !0,
-		detail: `Code contributions to external repos with no observed issue, comment, review, or watch activity`
+		detail: `Code contributions to external repos with no observed issue, comment, review, or watch activity`,
+		data: [{
+			label: `External PRs`,
+			value: m.length
+		}, {
+			label: `Has engagement events`,
+			value: !1
+		}],
+		events: m
 	}), i;
 }
-function U(e, t, n) {
+function K(e, t, n) {
 	let r = [];
 	return e === 0 && t.length === n.length && n.length >= u.ZERO_REPOS_MIN_EVENTS && r.push({
 		label: `Only active on other people's repos`,
 		points: u.POINTS_ZERO_REPOS_ACTIVE + u.POINTS_NO_PERSONAL_ACTIVITY,
-		detail: `No personal repos, all ${n.length} events are on repos they don't own`
+		detail: `No personal repos, all ${n.length} events are on repos they don't own`,
+		data: [
+			{
+				label: `Personal repos`,
+				value: 0
+			},
+			{
+				label: `External events`,
+				value: t.length
+			},
+			{
+				label: `Total events`,
+				value: n.length
+			}
+		],
+		events: t
 	}), r;
 }
-const W = [
+const q = [
 	/co-authored-by:.*<[^>]*@anthropic\.com>/i,
 	/co-authored-by:.*<[^>]*copilot@github\.com>/i,
 	/co-authored-by:.*<[^>]*\+copilot@users\.noreply\.github\.com>/i,
@@ -20608,20 +21368,20 @@ const W = [
 	/🤖 generated with/i,
 	/generated by cursor/i
 ];
-function G(e) {
-	return e ? W.some((t) => t.test(e)) : !1;
+function J(e) {
+	return e ? q.some((t) => t.test(e)) : !1;
 }
-function K(e) {
+function Y(e) {
 	if (!(e.totalCommits < u.AI_COMMIT_MIN_COMMITS)) return u.AI_COMMIT_TIERS.find((t) => e.ratio >= t.ratio)?.multiplier;
 }
-function q(e) {
+function X(e) {
 	let t = /* @__PURE__ */ new Set(), n = 0, r = 0;
 	for (let i of e) {
 		if (i.sha) {
 			if (t.has(i.sha)) continue;
 			t.add(i.sha);
 		}
-		n++, G(i.message) && r++;
+		n++, J(i.message) && r++;
 	}
 	let i = n > 0 ? r / n : 0;
 	return {
@@ -20630,22 +21390,23 @@ function q(e) {
 		ratio: i
 	};
 }
-function J(e) {
-	let t = C(e), n = w(e);
-	if (!(!t && !n)) return t === `high` ? u.BOUNTY_MULTIPLIER_HIGH : u.BOUNTY_MULTIPLIER_LOW;
+function Z(e) {
+	let t = k(e);
+	if (t) return t === `high` ? u.BOUNTY_MULTIPLIER_HIGH : u.BOUNTY_MULTIPLIER_LOW;
 }
-function Y(e) {
-	let t = 0;
-	if (e.length < u.MIN_EVENTS_FOR_ANALYSIS) return t;
-	let n = e.filter((e) => e.type === `IssuesEvent` && e.payload?.action === `opened`);
-	if (n.length >= u.ORGANIC_ISSUE_MIN_COUNT && new Set(n.map((e) => e.repo?.name).filter((e) => e !== void 0)).size >= u.ORGANIC_ISSUE_MIN_REPOS) {
-		let e = n.map((e) => (0, h.default)(e.created_at)).sort((e, t) => e.valueOf() - t.valueOf()), r = e[0], i = e[e.length - 1];
-		(r && i ? i.diff(r, `day`) : 0) >= u.ORGANIC_ISSUE_MIN_DAYS && (t += u.POINTS_ORGANIC_ISSUE_ENGAGEMENT);
+function Q(e, t) {
+	let n = 0;
+	if (e.length < u.MIN_EVENTS_FOR_ANALYSIS) return n;
+	let r = e.filter((e) => e.type === `IssuesEvent` && e.payload?.action === `opened`);
+	if (r.length >= u.ORGANIC_ISSUE_MIN_COUNT && new Set(r.map((e) => e.repo?.name).filter((e) => e !== void 0)).size >= u.ORGANIC_ISSUE_MIN_REPOS) {
+		let e = r.map((e) => (0, h.default)(e.created_at)).sort((e, t) => e.valueOf() - t.valueOf()), t = e[0], i = e[e.length - 1];
+		(t && i ? i.diff(t, `day`) : 0) >= u.ORGANIC_ISSUE_MIN_DAYS && (n += u.POINTS_ORGANIC_ISSUE_ENGAGEMENT);
 	}
-	return t;
+	let i = t.toLowerCase(), a = e.filter((e) => e.type === `PullRequestEvent` && e.payload?.action === `opened`), o = e.filter((e) => e.type !== `PullRequestEvent` || e.payload?.action !== `merged` ? !1 : (e.payload?.pull_request?.head?.repo?.url?.toLowerCase() ?? ``).includes(`/repos/${i}/`));
+	return o.length >= u.ORGANIC_MERGED_PR_MIN && (a.length >= u.ORGANIC_MERGED_PR_MIN_OPENED ? o.length / a.length : 0) >= u.ORGANIC_MERGED_PR_MIN_RATE && (o.length >= u.ORGANIC_MERGED_PR_EXTREME ? n += u.POINTS_ORGANIC_MERGED_PR_EXTREME : o.length >= u.ORGANIC_MERGED_PR_HIGH ? n += u.POINTS_ORGANIC_MERGED_PR_HIGH : n += u.POINTS_ORGANIC_MERGED_PR), n;
 }
 h.default.extend(m.default), h.default.extend(p.default);
-function X({ createdAt: e, reposCount: t, accountName: n, events: r, excludeRepos: i = [], commits: a = [] }) {
+function $({ createdAt: e, reposCount: t, accountName: n, events: r, excludeRepos: i = [], commits: a = [] }) {
 	let o = [], s = i.map((e) => e.toLowerCase()), c = r.filter((e) => {
 		let t = e.repo?.name?.toLowerCase();
 		return t && !s.includes(t);
@@ -20653,23 +21414,40 @@ function X({ createdAt: e, reposCount: t, accountName: n, events: r, excludeRepo
 		let t = e.repo?.name?.split(`/`)[0]?.toLowerCase();
 		return t && t !== n.toLowerCase();
 	}), f = l < u.AGE_YOUNG_ACCOUNT;
-	o.push(...g(l)), o.push(...U(t, d, c)), o.push(...B(c)), o.push(..._(c)), o.push(...P(c)), o.push(...j(c)), o.push(...V(c)), o.push(...D(c, l)), o.push(...z(c, l)), o.push(...O(c, l)), o.push(...F(c)), o.push(...I(c)), o.push(...H(c, t, f, n)), o.push(...R(c)), o.push(...L(c)), o.push(...k(c));
-	let p = T(c), m = E(c);
-	o.push(...p), o.push(...m);
-	let v = S(c), y = Y(c), b = q(a.filter((e) => !e.repo || !s.includes(e.repo.toLowerCase()))), x = K(b) ?? 1, C = o.some((e) => e.amplifiable && e.points > 0);
-	if (x > 1) {
-		let { ratio: e, aiCommits: t, totalCommits: n } = b, r = Math.round(e * 100), i = C ? `${t}/${n} commits (${r}%) AI-attributed — ${x}x multiplier applied to automation signals` : `${t}/${n} commits (${r}%) AI-attributed — no automation signals to amplify`;
+	o.push(...g(l)), o.push(...K(t, d, c)), o.push(...U(c)), o.push(..._(c)), o.push(...L(c)), o.push(...P(c)), o.push(...W(c)), o.push(...j(c, l)), o.push(...H(c, l)), o.push(...M(c, l, n)), o.push(...R(c)), o.push(...z(c)), o.push(...G(c, t, f, n)), o.push(...V(c)), o.push(...B(c)), o.push(...N(c)), o.push(...A(c)), o.push(...E(c)), o.push(...b(c));
+	let p = O(c), m = Q(c, n), v = X(a.filter((e) => !e.repo || !s.includes(e.repo.toLowerCase()))), y = Y(v) ?? 1, x = o.some((e) => e.amplifiable && e.points > 0);
+	if (y > 1) {
+		let { ratio: e, aiCommits: t, totalCommits: n } = v, r = Math.round(e * 100), i = x ? `${t}/${n} commits (${r}%) AI-attributed — ${y}x multiplier applied to automation signals` : `${t}/${n} commits (${r}%) AI-attributed — no automation signals to amplify`;
 		o.push({
 			label: `Predominantly AI-attributed commits`,
 			points: 0,
-			detail: i
+			detail: i,
+			data: [
+				{
+					label: `AI-attributed commits`,
+					value: v.aiCommits
+				},
+				{
+					label: `Total commits`,
+					value: v.totalCommits
+				},
+				{
+					label: `AI commit ratio`,
+					value: `${Math.round(v.ratio * 100)}%`
+				},
+				{
+					label: `Score multiplier`,
+					value: y
+				}
+			],
+			events: []
 		});
 	}
-	let w = J(c) ?? 1, A = o.reduce((e, t) => e + (t.amplifiable ? Math.round(t.points * x * w) : t.points), 0), M = Math.min(100, Math.max(0, 100 - A + y)), N = `automation`;
-	return M >= u.THRESHOLD_HUMAN ? N = `organic` : M >= u.THRESHOLD_SUSPICIOUS && (N = `mixed`), {
-		score: M,
-		classification: N,
-		isBountyHunter: v,
+	let S = Z(c) ?? 1, C = o.reduce((e, t) => e + (t.amplifiable ? Math.round(t.points * y * S) : t.points), 0), w = Math.min(100, Math.max(0, 100 - C + m)), T = `automation`;
+	return w >= u.THRESHOLD_HUMAN ? T = `organic` : w >= u.THRESHOLD_SUSPICIOUS && (T = `mixed`), {
+		score: w,
+		classification: T,
+		isBountyHunter: p,
 		flags: o,
 		profile: {
 			age: l,
@@ -20804,7 +21582,7 @@ async function run() {
 				warning("Could not fetch verified automations list");
 			}
 			hasCommunityFlag = !!verified.find((account) => account.username === username);
-			analysis = X({
+			analysis = $({
 				accountName: username,
 				reposCount: user.public_repos,
 				createdAt: user.created_at,
