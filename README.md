@@ -27,7 +27,7 @@ jobs:
       contents: read
     steps:
       - name: AgentScan
-        uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
+        uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -61,7 +61,7 @@ To skip specific team members from being scanned, add their usernames to the `al
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
+  uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     allowed-users: "dependabot,renovate,my-trusted-bot"
@@ -75,7 +75,7 @@ To skip analysis based on the author's relationship to the repository, set `trus
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
+  uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     trusted-author-associations: "member,owner,collaborator"
@@ -87,7 +87,7 @@ Use `scan-pull-requests` and `scan-issues` to control which event types are anal
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
+  uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     scan-pull-requests: true
@@ -107,7 +107,7 @@ steps:
       key: agentscan-cache-${{ github.actor }}
       restore-keys: agentscan-cache-
   - name: AgentScan
-    uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
+    uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
     with:
       github-token: ${{ secrets.GITHUB_TOKEN }}
       cache-path: ".agentscan-cache"
@@ -129,7 +129,7 @@ By default, the action skips posting a PR or issue comment when the analysis res
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
+  uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     comment-on-organic: true
@@ -143,7 +143,7 @@ To customize labels added to PRs and issues, set any of the label inputs:
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
+  uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     label-community-flagged: "security:community-flagged"
@@ -162,7 +162,7 @@ Control what AgentScan does with its findings via `mode`:
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@f41545309db947a68e22ed2643f182e754f4d41a
+  uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     mode: silent
