@@ -161,6 +161,28 @@ describe("AgentScan Action", () => {
       expect(mockOctokit.rest.issues.createComment).toHaveBeenCalled();
     });
 
+    it("should scan the PR author, not the actor, when someone else reopens the PR", async () => {
+      Object.defineProperty(github, "context", {
+        value: {
+          ...mockContext,
+          actor: "maintainer-who-reopened",
+          payload: {
+            pull_request: { number: 123, user: { login: "pr-author" } },
+          },
+        },
+        configurable: true,
+      });
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith("username", "pr-author");
+
+      const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+      expect(mockOctokit.rest.users.getByUsername).toHaveBeenCalledWith({
+        username: "pr-author",
+      });
+    });
+
     it("should save analysis to cache when cache path is provided", async () => {
       setupInputs({ "cache-path": ".agentscan-cache" });
 

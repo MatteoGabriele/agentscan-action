@@ -122,9 +122,12 @@ async function run() {
     };
 
     const context = github.context;
-    const username = context.actor;
     const isPR = context.payload.pull_request !== undefined;
     const isIssue = context.payload.issue !== undefined;
+    const username =
+      context.payload.pull_request?.user?.login ??
+      context.payload.issue?.user?.login ??
+      context.actor;
     const prNumber = context.payload.pull_request?.number;
     const issueNumber = context.payload.issue?.number;
     const targetNumber = prNumber ?? issueNumber;

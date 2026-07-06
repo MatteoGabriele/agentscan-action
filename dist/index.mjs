@@ -19289,7 +19289,7 @@ function getOctokit(token, options, ...additionalPlugins) {
 	return new (GitHub.plugin(...additionalPlugins))(getOctokitOptions(token, options));
 }
 //#endregion
-//#region node_modules/.pnpm/@unveil+identity@1.12.0/node_modules/@unveil/identity/dist/index.mjs
+//#region node_modules/.pnpm/@unveil+identity@1.12.1/node_modules/@unveil/identity/dist/index.mjs
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || e((t = { exports: {} }).exports, t), t.exports), s = (e, i, o, s) => {
 	if (i && typeof i == `object` || typeof i == `function`) for (var c = r(i), l = 0, u = c.length, d; l < u; l++) d = c[l], !a.call(e, d) && d !== o && t(e, d, {
 		get: ((e) => i[e]).bind(null, d),
@@ -20144,7 +20144,7 @@ function j(e, t) {
 		if (t >= i) {
 			let e = t / o.length;
 			if (e >= a) return n.push({
-				label: `Automated branch/PR workflow`,
+				label: `Rapid branch→PR pattern`,
 				points: u.POINTS_BRANCH_PR_AUTOMATION,
 				amplifiable: !0,
 				detail: `${t}/${o.length} branch creations followed by PRs within ${r}s`,
@@ -20209,7 +20209,7 @@ function j(e, t) {
 		if (e >= d) {
 			let s = e / o.length;
 			s >= a && n.push({
-				label: `Automated fork/PR workflow`,
+				label: `Rapid fork→PR pattern`,
 				points: u.POINTS_BRANCH_PR_AUTOMATION,
 				amplifiable: !0,
 				detail: `${e}/${o.length} fork branches followed by upstream PRs within ${t}s`,
@@ -21457,19 +21457,22 @@ function $({ createdAt: e, reposCount: t, accountName: n, events: r, excludeRepo
 }
 //#endregion
 //#region src/known-bots.ts
-const knownBots = [
+const knownBots = new Set([
 	"agentscanapp",
 	"copilot",
 	"dependabot",
+	"dependabot-preview",
 	"renovate",
+	"renovate-bot",
 	"greenkeeper",
 	"github-actions",
 	"stale",
-	"snyk",
+	"snyk-bot",
 	"codecov",
+	"codecov-commenter",
 	"coveralls",
-	"travis",
-	"circle",
+	"travis-ci",
+	"circleci",
 	"appveyor",
 	"azure-pipelines",
 	"netlify",
@@ -21477,10 +21480,10 @@ const knownBots = [
 	"heroku",
 	"aws-amplify",
 	"eslintbot"
-];
+]);
 function isKnownBot(username) {
 	const lower = username.toLowerCase();
-	return knownBots.some((name) => lower.includes(name)) || lower.endsWith("[bot]");
+	return lower.endsWith("[bot]") || knownBots.has(lower);
 }
 //#endregion
 //#region src/utils.ts
@@ -21578,9 +21581,9 @@ async function run() {
 			communityFlagged: getCustomMessage("message-community-flagged")
 		};
 		const context$2 = context;
-		const username = context$2.actor;
 		const isPR = context$2.payload.pull_request !== void 0;
 		const isIssue = context$2.payload.issue !== void 0;
+		const username = context$2.payload.pull_request?.user?.login ?? context$2.payload.issue?.user?.login ?? context$2.actor;
 		const prNumber = context$2.payload.pull_request?.number;
 		const issueNumber = context$2.payload.issue?.number;
 		const targetNumber = prNumber ?? issueNumber;
@@ -21594,7 +21597,7 @@ async function run() {
 			info("Skipping analysis: issue scanning is disabled");
 			return;
 		}
-		if (allowedUsers.includes(username)) {
+		if (allowedUsers.some((userName) => userName.toLowerCase() === username.toLowerCase())) {
 			info(`Skipping analysis for ${username}`);
 			return;
 		}
@@ -21710,13 +21713,12 @@ async function run() {
 		].join("\n");
 		try {
 			if (mode === "full" || mode === "comment") {
-				const { data: existingComments } = await octokit.rest.issues.listComments({
+				const existing = (await octokit.paginate(octokit.rest.issues.listComments, {
 					owner: context$2.repo.owner,
 					repo: context$2.repo.repo,
 					issue_number: targetNumber,
 					per_page: 100
-				});
-				const existing = existingComments.find((comment) => comment.body?.includes(MARKER));
+				})).find((comment) => comment.body?.includes(MARKER));
 				if (existing) await octokit.rest.issues.updateComment({
 					owner: context$2.repo.owner,
 					repo: context$2.repo.repo,
