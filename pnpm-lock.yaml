@@ -15,8 +15,8 @@ importers:
         specifier: ^9.0.0
         version: 9.0.0
       '@unveil/identity':
-        specifier: ^1.10.0
-        version: 1.10.0
+        specifier: ^1.12.1
+        version: 1.12.1
     devDependencies:
       '@types/node':
         specifier: ^25.3.5
@@ -573,8 +573,8 @@ packages:
     resolution: {integrity: sha512-ZK+ExK7scBzUCAXCTtAwUm6QENJ+l3tCDQXNCly4WcGUvbIAWdaiNns4brganGN9nrxxRkC9Rx0CrxvIsn9zHA==}
     hasBin: true
 
-  '@unveil/identity@1.10.0':
-    resolution: {integrity: sha512-g6wEQG2va24z2m4U6kv2avXX47lY9iJiF3iW9QmZQXiRFKXCYGBg/rrMNaL8RXWt4DmlWXhvdCFRxdN6FPBbqA==}
+  '@unveil/identity@1.12.1':
+    resolution: {integrity: sha512-tDXMuHdbxJHGmF5vP+EulZ+thPmhWwh2Tw+H/6K6RPwn2UbohOCY/JDrhYBTk+z7gb0XvisRPcB3W2qKEEXGSQ==}
 
   '@vitest/expect@2.1.9':
     resolution: {integrity: sha512-UJCIkTBenHeKT1TTlKMJWy1laZewsRIzYighyYiJKZreqtdxSos/S1t+ktRMQWu2CKqaarrkeszJx1cgC5tGZw==}
@@ -1355,7 +1355,7 @@ snapshots:
       '@typescript/native-preview-win32-arm64': 7.0.0-dev.20260309.1
       '@typescript/native-preview-win32-x64': 7.0.0-dev.20260309.1
 
-  '@unveil/identity@1.10.0': {}
+  '@unveil/identity@1.12.1': {}
 
   '@vitest/expect@2.1.9':
     dependencies:

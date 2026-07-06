@@ -297,6 +297,110 @@ describe("AgentScan Action", () => {
     });
   });
 
+  describe("Username Resolution - PR/issue author vs triggering actor", () => {
+    beforeEach(() => {
+      setupInputs();
+      setupCommonMocks();
+      vi.mocked(github.getOctokit).mockReturnValue(createMockOctokit() as any);
+    });
+
+    it("should analyze the PR author, not the actor who reopened the PR", async () => {
+      const reopenedContext = {
+        actor: "some-contributor",
+        payload: {
+          pull_request: { number: 123, user: { login: "pr-author" } },
+        },
+        repo: { owner: "test-owner", repo: "test-repo" },
+      };
+      Object.defineProperty(github, "context", {
+        value: reopenedContext,
+        configurable: true,
+      });
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith("username", "pr-author");
+      expect(core.setOutput).not.toHaveBeenCalledWith(
+        "username",
+        "some-contributor",
+      );
+    });
+
+    it("should analyze the issue author, not the actor who reopened the issue", async () => {
+      const reopenedContext = {
+        actor: "some-contributor",
+        payload: {
+          issue: { number: 456, user: { login: "issue-author" } },
+        },
+        repo: { owner: "test-owner", repo: "test-repo" },
+      };
+      Object.defineProperty(github, "context", {
+        value: reopenedContext,
+        configurable: true,
+      });
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith("username", "issue-author");
+    });
+
+    it("should fall back to the actor when the payload has no PR/issue user field", async () => {
+      const legacyContext = {
+        actor: "fallback-actor",
+        payload: { pull_request: { number: 123 } },
+        repo: { owner: "test-owner", repo: "test-repo" },
+      };
+      Object.defineProperty(github, "context", {
+        value: legacyContext,
+        configurable: true,
+      });
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith("username", "fallback-actor");
+    });
+
+    it("should prefer the PR author over the issue author when both are present", async () => {
+      const bothContext = {
+        actor: "some-contributor",
+        payload: {
+          pull_request: { number: 123, user: { login: "pr-author" } },
+          issue: { number: 456, user: { login: "issue-author" } },
+        },
+        repo: { owner: "test-owner", repo: "test-repo" },
+      };
+      Object.defineProperty(github, "context", {
+        value: bothContext,
+        configurable: true,
+      });
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith("username", "pr-author");
+    });
+
+    it("should check skip-members against the PR author, not the reopening actor", async () => {
+      setupInputs({ "skip-members": "some-contributor" });
+
+      const reopenedContext = {
+        actor: "some-contributor",
+        payload: {
+          pull_request: { number: 123, user: { login: "pr-author" } },
+        },
+        repo: { owner: "test-owner", repo: "test-repo" },
+      };
+      Object.defineProperty(github, "context", {
+        value: reopenedContext,
+        configurable: true,
+      });
+
+      await run();
+
+      expect(identify).toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith("username", "pr-author");
+    });
+  });
+
   describe("Issue Scanning - Triggered by issue events, no PR", () => {
     beforeEach(() => {
       setupInputs();
