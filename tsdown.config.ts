@@ -1,7 +1,8 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  deps: {
-    alwaysBundle: ["@actions/github", "@actions/core", "@unveil/identity"],
-  },
+	minify: true,
+	deps: {
+		alwaysBundle: ["@actions/github", "@actions/core", "@unveil/identity"],
+	},
 });
