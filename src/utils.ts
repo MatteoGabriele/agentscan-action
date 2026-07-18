@@ -15,9 +15,7 @@ type ReportIssueParams = {
 };
 
 type EvidenceParams = {
-	username: string;
 	flags: IdentifyFlag[];
-	/** Omit when the evidence is rendered on the flagged PR/issue itself — pointing back to itself is redundant. */
 	sourceUrl?: string;
 };
 
@@ -74,7 +72,6 @@ function extractExamplePrUrls(flags: IdentifyFlag[], limit: number): string[] {
  * report-issue link, so both surfaces always show the same facts.
  */
 export function buildEvidenceLines({
-	username,
 	flags,
 	sourceUrl,
 }: EvidenceParams): string[] {
@@ -89,7 +86,7 @@ export function buildEvidenceLines({
 	if (sourceUrl) {
 		lines.push(`- Flagged in: ${withoutBacklink(sourceUrl)}`);
 	}
-	lines.push(`- Full analysis: https://agentscan.tools/user/${username}`);
+
 	lines.push(...topFlags.map((flag) => `- ${flag.label}: ${flag.detail}`));
 
 	if (flags.length > topFlags.length) {
@@ -101,7 +98,7 @@ export function buildEvidenceLines({
 	if (examplePrUrls.length > 0) {
 		lines.push(
 			"",
-			"Example PRs:",
+			`Last ${examplePrUrls.length} PR${examplePrUrls.length === 1 ? "" : "s"}:`,
 			...examplePrUrls.map((url) => `- ${withoutBacklink(url)}`),
 		);
 	}
@@ -124,7 +121,7 @@ export function buildReportIssueUrl({
 }: ReportIssueParams): string {
 	const reason = `AgentScan classified this account as possible "${classification}" (score ${score}/100).`;
 
-	const evidenceLines = buildEvidenceLines({ username, flags, sourceUrl });
+	const evidenceLines = buildEvidenceLines({ flags, sourceUrl });
 
 	const url = new URL(REPORT_ISSUE_URL);
 	url.searchParams.set("template", "report-automated-account.yml");
