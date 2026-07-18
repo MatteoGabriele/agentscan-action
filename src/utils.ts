@@ -122,7 +122,7 @@ export function buildReportIssueUrl({
 	flags,
 	sourceUrl,
 }: ReportIssueParams): string {
-	const reason = `AgentScan classified this account as "${classification}" (score ${score}/100) based on ${flags.length} possible automated signal${flags.length === 1 ? "" : "s"}.`;
+	const reason = `AgentScan classified this account as possible "${classification}" (score ${score}/100).`;
 
 	const evidenceLines = buildEvidenceLines({ username, flags, sourceUrl });
 
