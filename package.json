@@ -1,27 +1,30 @@
 {
-  "name": "agentscan",
-  "type": "module",
-  "version": "0.0.0",
-  "description": "Detects automation patterns on GitHub",
-  "author": "Matteo Gabriele <m.gabriele.dev@gmail.com>",
-  "license": "MIT",
-  "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch",
-    "test": "vitest",
-    "typecheck": "tsc --noEmit",
-    "prepublishOnly": "pnpm run build"
-  },
-  "devDependencies": {
-    "@types/node": "^25.3.5",
-    "@typescript/native-preview": "7.0.0-dev.20260309.1",
-    "tsdown": "^0.21.5",
-    "typescript": "^5.9.3",
-    "vitest": "^2.1.8"
-  },
-  "dependencies": {
-    "@actions/core": "^3.0.0",
-    "@actions/github": "^9.0.0",
-    "@unveil/identity": "^1.12.1"
-  }
+	"name": "agentscan",
+	"type": "module",
+	"version": "0.0.0",
+	"description": "Detects automation patterns on GitHub",
+	"author": "Matteo Gabriele <m.gabriele.dev@gmail.com>",
+	"license": "MIT",
+	"scripts": {
+		"build": "tsdown",
+		"dev": "tsdown --watch",
+		"test": "vitest",
+		"typecheck": "tsc --noEmit",
+		"prepublishOnly": "pnpm run build",
+		"check": "biome check",
+		"check:fix": "biome check --write"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.4",
+		"@types/node": "^25.3.5",
+		"@typescript/native-preview": "7.0.0-dev.20260309.1",
+		"tsdown": "^0.21.5",
+		"typescript": "^5.9.3",
+		"vitest": "^2.1.8"
+	},
+	"dependencies": {
+		"@actions/core": "^3.0.0",
+		"@actions/github": "^9.0.0",
+		"@unveil/identity": "^1.12.1"
+	}
 }
