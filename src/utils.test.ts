@@ -239,7 +239,7 @@ describe("buildReportIssueUrl", () => {
 		);
 
 		expect(url.searchParams.get("reason")).toBe(
-			'AgentScan classified this account as possible "automation" (score 5/100).',
+			'AgentScan classified this account as "automation" (score 5/100) based on 2 automated signals.',
 		);
 	});
 
