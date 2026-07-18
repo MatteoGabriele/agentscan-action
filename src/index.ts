@@ -371,7 +371,7 @@ async function run() {
 		// so a reviewer can see the evidence without leaving this page.
 		const evidenceLines =
 			analysis.flags.length > 0
-				? buildEvidenceLines({ username, flags: analysis.flags })
+				? buildEvidenceLines({ flags: analysis.flags })
 				: [];
 
 		const body = [

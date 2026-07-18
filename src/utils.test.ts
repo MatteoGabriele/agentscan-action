@@ -131,7 +131,7 @@ describe("buildReportIssueUrl", () => {
 		expect(url.searchParams.has("user-id")).toBe(false);
 	});
 
-	it("includes the source and full-analysis links plus each flag's label and detail in the evidence", () => {
+	it("includes the source link plus each flag's label and detail in the evidence", () => {
 		const url = new URL(
 			buildReportIssueUrl({
 				username: "bot-account",
@@ -156,7 +156,6 @@ describe("buildReportIssueUrl", () => {
 
 		const evidence = url.searchParams.get("evidence") ?? "";
 		expect(evidence).toContain("https://redirect.github.com/owner/repo/pull/1");
-		expect(evidence).toContain("https://agentscan.tools/user/bot-account");
 		expect(evidence).toContain("Fork surge: 12 forks in 24h");
 		expect(evidence).toContain("PR burst: 20 PRs in a day");
 	});
@@ -284,7 +283,7 @@ describe("buildReportIssueUrl", () => {
 		);
 
 		const evidence = url.searchParams.get("evidence") ?? "";
-		expect(evidence).toContain("Example PRs:");
+		expect(evidence).toContain("Last 2 PRs:");
 		expect(evidence).toContain(
 			"https://redirect.github.com/owner/repo1/pull/10",
 		);
@@ -325,6 +324,7 @@ describe("buildReportIssueUrl", () => {
 		);
 
 		const evidence = url.searchParams.get("evidence") ?? "";
+		expect(evidence).toContain("Last 5 PRs:");
 		const prLines = evidence
 			.split("\n")
 			.filter((line) => line.startsWith("- https://redirect.github.com"));
@@ -332,7 +332,7 @@ describe("buildReportIssueUrl", () => {
 		expect(evidence).not.toContain("owner/repo6");
 	});
 
-	it("omits the Example PRs section when flags carry no PR events", () => {
+	it("omits the example PRs section when flags carry no PR events", () => {
 		const url = new URL(
 			buildReportIssueUrl({
 				username: "bot-account",
@@ -345,6 +345,6 @@ describe("buildReportIssueUrl", () => {
 		);
 
 		const evidence = url.searchParams.get("evidence") ?? "";
-		expect(evidence).not.toContain("Example PRs:");
+		expect(evidence).not.toContain("PRs:");
 	});
 });
