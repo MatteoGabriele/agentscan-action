@@ -87,6 +87,7 @@ describe("parseTypedArray", () => {
 describe("buildReportIssueUrl", () => {
 	const makeFlag = (overrides: Partial<IdentifyFlag> = {}): IdentifyFlag => ({
 		label: "Test Flag",
+		group: "pr-volume",
 		points: 10,
 		detail: "Test detail",
 		data: [],
