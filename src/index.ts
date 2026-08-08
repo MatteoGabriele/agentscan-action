@@ -35,6 +35,11 @@ type CustomMessages = Partial<Record<IdentityClassification, string | null>> & {
 	communityFlagged?: string | null;
 };
 
+type LabelMap = Record<
+	Exclude<IdentityClassification, "organic" | "insufficient-data">,
+	string
+>;
+
 type AuthorAssociation =
 	| "collaborator"
 	| "contributor"
@@ -265,12 +270,7 @@ async function run() {
 
 			hasCommunityFlag = !!verifiedAutomation;
 
-			analysis = identify({
-				accountName: username,
-				reposCount: user.public_repos,
-				createdAt: user.created_at,
-				events,
-			});
+			analysis = identify({ user, events });
 
 			isFlagged = hasCommunityFlag || analysis.classification !== "organic";
 
@@ -323,16 +323,6 @@ async function run() {
 			return;
 		}
 
-		const statusIndicators: Record<IdentityClassification, string> = {
-			organic: "✅",
-			mixed: "⚠️",
-			automation: "❌",
-		};
-
-		const indicator = hasCommunityFlag
-			? "🚩"
-			: statusIndicators[analysis.classification];
-
 		const details = hasCommunityFlag
 			? {
 					label: "Flagged by community",
@@ -376,12 +366,12 @@ async function run() {
 
 		const body = [
 			MARKER,
-			`### ${indicator} ${details.label}`,
+			`### ${details.label}`,
 			"",
 			description,
 			"",
 			`[View full analysis →](https://agentscan.tools/user/${username})`,
-			...(reportUrl ? ["", `[🚩 Report this account →](${reportUrl})`] : []),
+			...(reportUrl ? ["", `[Report this account →](${reportUrl})`] : []),
 			...(evidenceLines.length > 0
 				? [
 						"",
@@ -435,11 +425,11 @@ async function run() {
 
 				if (hasCommunityFlag) {
 					labelsToAdd.push(labels.communityFlagged);
-				} else if (analysis.classification !== "organic") {
-					const labelMap: Record<
-						Exclude<IdentityClassification, "organic">,
-						string
-					> = {
+				} else if (
+					analysis.classification !== "organic" &&
+					analysis.classification !== "insufficient-data"
+				) {
+					const labelMap: LabelMap = {
 						mixed: labels.mixed,
 						automation: labels.automation,
 					};
