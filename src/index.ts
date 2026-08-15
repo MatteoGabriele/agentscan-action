@@ -8,6 +8,15 @@ import {
 	type IdentityClassification,
 	identify,
 } from "@unveil/identity";
+import {
+	buildHoneypotComment,
+	buildHoneypotResultComment,
+	createHoneypotToken,
+	extractHoneypotToken,
+	HONEYPOT_RESULT_MARKER,
+	hasHoneypotToken,
+	isBotComment,
+} from "./honeypot";
 import { isKnownBot } from "./known-bots";
 import {
 	buildEvidenceLines,
@@ -35,6 +44,11 @@ type CustomMessages = Partial<Record<IdentityClassification, string | null>> & {
 	communityFlagged?: string | null;
 };
 
+type LabelMap = Record<
+	Exclude<IdentityClassification, "organic" | "insufficient-data">,
+	string
+>;
+
 type AuthorAssociation =
 	| "collaborator"
 	| "contributor"
@@ -56,6 +70,107 @@ function getLabelInput(name: string, defaultValue: string): string {
 function getCustomMessage(name: string): string | null {
 	const message = core.getInput(name).trim();
 	return message || null;
+}
+
+type HoneypotReplyParams = {
+	octokit: ReturnType<typeof github.getOctokit>;
+	owner: string;
+	repo: string;
+	targetNumber: number;
+	/** Author of the PR/issue, i.e. the only person who can spring their own trap. */
+	username: string;
+	commentAuthor: string | undefined;
+	commentBody: string | undefined;
+	isPR: boolean;
+	mode: Mode;
+	autoClose: boolean;
+	automationLabel: string;
+};
+
+/**
+ * Handles a reply to the bait comment. An agent told to post a verification
+ * code and nothing else will do exactly that; a human reading the thread never
+ * sees the instruction, because it lives in an HTML comment.
+ */
+async function handleHoneypotReply({
+	octokit,
+	owner,
+	repo,
+	targetNumber,
+	username,
+	commentAuthor,
+	commentBody,
+	isPR,
+	mode,
+	autoClose,
+	automationLabel,
+}: HoneypotReplyParams): Promise<boolean> {
+	// A maintainer or third party quoting the code is not a signal about the
+	// contributor, so only the thread author can trip it.
+	if (
+		!commentAuthor ||
+		commentAuthor !== username ||
+		isKnownBot(commentAuthor)
+	) {
+		return false;
+	}
+
+	// Paginated: on a long thread the bait comment is not on the last page, and
+	// missing it would mean never matching the reply that sprang the trap.
+	const comments = await octokit.paginate(octokit.rest.issues.listComments, {
+		owner,
+		repo,
+		issue_number: targetNumber,
+		per_page: 100,
+	});
+
+	const ownComments = comments.filter(isBotComment);
+
+	if (ownComments.some((c) => c.body?.includes(HONEYPOT_RESULT_MARKER))) {
+		core.info("Honeypot already reported on this thread");
+		return false;
+	}
+
+	const token = ownComments
+		.map((c) => extractHoneypotToken(c.body))
+		.find((value): value is string => value !== null);
+
+	if (!token || !hasHoneypotToken(commentBody, token)) {
+		return false;
+	}
+
+	let closed = false;
+
+	if (autoClose) {
+		await octokit.rest.issues.update({
+			owner,
+			repo,
+			issue_number: targetNumber,
+			state: "closed",
+			state_reason: "not_planned",
+		});
+		closed = true;
+	}
+
+	if (mode === "full" || mode === "comment") {
+		await octokit.rest.issues.createComment({
+			owner,
+			repo,
+			issue_number: targetNumber,
+			body: buildHoneypotResultComment({ username, isPR, closed }),
+		});
+	}
+
+	if (mode === "full" || mode === "labels") {
+		await octokit.rest.issues.addLabels({
+			owner,
+			repo,
+			issue_number: targetNumber,
+			labels: [automationLabel],
+		});
+	}
+
+	return true;
 }
 
 function getMode(): Mode {
@@ -86,6 +201,7 @@ async function run() {
 		const autoCloseClassificationsInput = core.getInput(
 			"auto-close-classifications",
 		);
+		const honeypot = core.getInput("honeypot").toLowerCase() === "true";
 
 		const allowedUsers = parseStringArray(allowedUsersInput);
 
@@ -127,34 +243,66 @@ async function run() {
 			communityFlagged: getCustomMessage("message-community-flagged"),
 		};
 
+		const honeypotMessage = getCustomMessage("message-honeypot");
+		const honeypotFirstTimeMessage = getCustomMessage(
+			"message-honeypot-first-time",
+		);
+
 		const context = github.context;
-		const isPR = context.payload.pull_request !== undefined;
+		// issue_comment events are only of interest to the honeypot, which needs
+		// to see the contributor's reply to the bait comment.
+		const isCommentEvent =
+			context.payload.comment !== undefined &&
+			context.payload.issue !== undefined;
+
+		// On issue_comment the PR lives under `issue`, distinguished by `pull_request`.
+		const isPR = isCommentEvent
+			? context.payload.issue?.pull_request !== undefined
+			: context.payload.pull_request !== undefined;
+
 		const isIssue = context.payload.issue !== undefined;
+
 		const username =
 			context.payload.pull_request?.user?.login ??
 			context.payload.issue?.user?.login ??
 			context.actor;
+
 		const prNumber = context.payload.pull_request?.number;
 		const issueNumber = context.payload.issue?.number;
 		const targetNumber = prNumber ?? issueNumber;
+
 		const rawAuthorAssociation =
 			context.payload.pull_request?.author_association ??
 			context.payload.issue?.author_association;
+
 		const authorAssociation = rawAuthorAssociation?.toLowerCase() as
 			| AuthorAssociation
 			| undefined;
+
+		// GitHub reports both for an author with no merged contribution here:
+		// `first_timer` is new to GitHub entirely, `first_time_contributor` is new
+		// to this repository. Either way it is their first PR/issue on the repo.
+		const isFirstTimeContributor =
+			authorAssociation === "first_timer" ||
+			authorAssociation === "first_time_contributor";
 
 		if (!targetNumber) {
 			throw new Error("No PR or issue number found");
 		}
 
-		if (isPR && !scanPullRequests) {
-			core.info("Skipping analysis: pull request scanning is disabled");
-			return;
-		}
+		// A reply is checked against bait this action already posted, so the scan
+		// gates have had their say by the time the trap can be sprung.
+		if (!isCommentEvent) {
+			if (isPR && !scanPullRequests) {
+				core.info("Skipping analysis: pull request scanning is disabled");
+				return;
+			}
 
-		if (!isPR && isIssue && !scanIssues) {
-			core.info("Skipping analysis: issue scanning is disabled");
+			if (!isPR && isIssue && !scanIssues) {
+				core.info("Skipping analysis: issue scanning is disabled");
+				return;
+			}
+		} else if (!honeypot) {
 			return;
 		}
 
@@ -182,6 +330,48 @@ async function run() {
 		}
 
 		const octokit = github.getOctokit(token);
+
+		if (isCommentEvent) {
+			core.setOutput("honeypot-triggered", "false");
+
+			try {
+				const triggered = await handleHoneypotReply({
+					octokit,
+					owner: context.repo.owner,
+					repo: context.repo.repo,
+					targetNumber,
+					username,
+					commentAuthor: context.payload.comment?.user?.login,
+					commentBody: context.payload.comment?.body,
+					isPR,
+					mode,
+					autoClose,
+					automationLabel: labels.automation,
+				});
+
+				core.setOutput("username", username);
+
+				if (triggered) {
+					core.setOutput("honeypot-triggered", "true");
+					core.info(
+						`Honeypot triggered by ${username} on #${targetNumber} (automated reply detected)`,
+					);
+				}
+			} catch (honeypotError: unknown) {
+				if (
+					honeypotError instanceof Error &&
+					honeypotError.message.includes("Resource not accessible")
+				) {
+					core.warning(
+						`Could not run the honeypot check on #${targetNumber}: missing permissions.`,
+					);
+				} else {
+					throw honeypotError;
+				}
+			}
+
+			return;
+		}
 
 		// Check cache if cache directory is provided
 		let cachedAnalysis: Record<string, unknown> | null = null;
@@ -265,12 +455,7 @@ async function run() {
 
 			hasCommunityFlag = !!verifiedAutomation;
 
-			analysis = identify({
-				accountName: username,
-				reposCount: user.public_repos,
-				createdAt: user.created_at,
-				events,
-			});
+			analysis = identify({ user, events });
 
 			isFlagged = hasCommunityFlag || analysis.classification !== "organic";
 
@@ -310,6 +495,68 @@ async function run() {
 		core.setOutput("account-age", analysis.profile.age);
 		core.setOutput("username", username);
 
+		const shouldAutoClose =
+			autoClose &&
+			(hasCommunityFlag ||
+				autoCloseClassifications.includes(analysis.classification));
+
+		// `mode` deliberately does not apply here: the bait is a comment, so there
+		// is no honeypot without one. Nor does `comment-on-organic` — the point of
+		// the bait is to catch what the activity analysis alone could not.
+		if (honeypot && !shouldAutoClose) {
+			try {
+				const comments = await octokit.paginate(
+					octokit.rest.issues.listComments,
+					{
+						owner: context.repo.owner,
+						repo: context.repo.repo,
+						issue_number: targetNumber,
+						per_page: 100,
+					},
+				);
+
+				const alreadyBaited = comments.some(
+					(comment) =>
+						isBotComment(comment) &&
+						extractHoneypotToken(comment.body) !== null,
+				);
+
+				if (!alreadyBaited) {
+					// A blank first-time greeting falls back to the regular custom one,
+					// so a repo that only customised `message-honeypot` keeps one voice.
+					const greeting = isFirstTimeContributor
+						? honeypotFirstTimeMessage || honeypotMessage
+						: honeypotMessage;
+
+					await octokit.rest.issues.createComment({
+						owner: context.repo.owner,
+						repo: context.repo.repo,
+						issue_number: targetNumber,
+						body: buildHoneypotComment({
+							token: createHoneypotToken(),
+							username,
+							isPR,
+							greeting,
+							isFirstTime: isFirstTimeContributor,
+						}),
+					});
+				}
+			} catch (honeypotError: unknown) {
+				if (
+					honeypotError instanceof Error &&
+					honeypotError.message.includes("Resource not accessible")
+				) {
+					core.warning(
+						`Could not post the honeypot comment on #${targetNumber}.`,
+					);
+				} else {
+					core.warning(
+						`Could not post the honeypot comment on #${targetNumber}: ${String(honeypotError)}`,
+					);
+				}
+			}
+		}
+
 		// Skip commenting if analysis is organic and comment-on-organic is disabled
 		if (
 			!commentOnOrganic &&
@@ -322,16 +569,6 @@ async function run() {
 			);
 			return;
 		}
-
-		const statusIndicators: Record<IdentityClassification, string> = {
-			organic: "✅",
-			mixed: "⚠️",
-			automation: "❌",
-		};
-
-		const indicator = hasCommunityFlag
-			? "🚩"
-			: statusIndicators[analysis.classification];
 
 		const details = hasCommunityFlag
 			? {
@@ -376,12 +613,12 @@ async function run() {
 
 		const body = [
 			MARKER,
-			`### ${indicator} ${details.label}`,
+			`### ${details.label}`,
 			"",
 			description,
 			"",
 			`[View full analysis →](https://agentscan.tools/user/${username})`,
-			...(reportUrl ? ["", `[🚩 Report this account →](${reportUrl})`] : []),
+			...(reportUrl ? ["", `[Report this account →](${reportUrl})`] : []),
 			...(evidenceLines.length > 0
 				? [
 						"",
@@ -435,11 +672,11 @@ async function run() {
 
 				if (hasCommunityFlag) {
 					labelsToAdd.push(labels.communityFlagged);
-				} else if (analysis.classification !== "organic") {
-					const labelMap: Record<
-						Exclude<IdentityClassification, "organic">,
-						string
-					> = {
+				} else if (
+					analysis.classification !== "organic" &&
+					analysis.classification !== "insufficient-data"
+				) {
+					const labelMap: LabelMap = {
 						mixed: labels.mixed,
 						automation: labels.automation,
 					};
@@ -476,38 +713,30 @@ async function run() {
 		}
 
 		// Auto-close if enabled and classification matches
-		if (autoClose) {
-			const shouldClose =
-				hasCommunityFlag ||
-				autoCloseClassifications.includes(analysis.classification);
+		if (shouldAutoClose) {
+			try {
+				await octokit.rest.issues.update({
+					owner: context.repo.owner,
+					repo: context.repo.repo,
+					issue_number: targetNumber,
+					state: "closed",
+					state_reason: "not_planned",
+				});
 
-			if (shouldClose) {
-				try {
-					await octokit.rest.issues.update({
-						owner: context.repo.owner,
-						repo: context.repo.repo,
-						issue_number: targetNumber,
-						state: "closed",
-						state_reason: "not_planned",
-					});
-
-					const closeEventType = prNumber ? "PR" : "issue";
-					const closeReason = hasCommunityFlag
-						? "community-flagged account"
-						: `${analysis.classification} classification`;
-					core.info(
-						`Closed ${closeEventType} #${targetNumber} (${closeReason})`,
-					);
-				} catch (closeError: unknown) {
-					if (closeError instanceof Error) {
-						if (closeError.message.includes("Resource not accessible")) {
-							const closeEventType = prNumber ? "PR" : "issue";
-							core.warning(
-								`Could not close ${closeEventType}. Analysis completed but close action skipped.`,
-							);
-						} else {
-							throw closeError;
-						}
+				const closeEventType = prNumber ? "PR" : "issue";
+				const closeReason = hasCommunityFlag
+					? "community-flagged account"
+					: `${analysis.classification} classification`;
+				core.info(`Closed ${closeEventType} #${targetNumber} (${closeReason})`);
+			} catch (closeError: unknown) {
+				if (closeError instanceof Error) {
+					if (closeError.message.includes("Resource not accessible")) {
+						const closeEventType = prNumber ? "PR" : "issue";
+						core.warning(
+							`Could not close ${closeEventType}. Analysis completed but close action skipped.`,
+						);
+					} else {
+						throw closeError;
 					}
 				}
 			}

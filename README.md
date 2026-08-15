@@ -52,6 +52,8 @@ The action will run automatically on new and reopened pull requests, and on newl
 - **auto-close** (optional): Whether to automatically close issues/PRs for detected automations (default: `false`)
 - **auto-close-classifications** (optional): Comma-separated list of classifications that trigger auto-close (default: `automation`)
 - **message-organic** / **message-mixed** / **message-automation** / **message-community-flagged** (optional): Custom messages per classification
+- **honeypot** (optional): Post a greeting comment that only automated readers act on, and flag the author when they take the bait (default: `false`)
+- **message-honeypot** / **message-honeypot-first-time** (optional): Custom greeting for the honeypot comment
 
 A machine-readable reference for these inputs (types, enums, defaults) is available at [`agentscan-action-v2.json`](https://agentscan.tools/schemas/agentscan-action-v2.json).
 
@@ -167,6 +169,74 @@ Control what AgentScan does with its findings via `mode`:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     mode: silent
 ```
+
+### Honeypot
+
+The activity analysis looks at a contributor's past. The honeypot looks at what
+happens right here: AgentScan posts an ordinary-looking greeting whose hidden
+part asks any automated reader to reply with a verification code and nothing
+else. A human never sees that instruction — it lives in an HTML comment. An
+agent drafting the next reply does, and follows it.
+
+If the author's next comment contains the code, AgentScan reports it, labels the
+thread, and closes it when `auto-close` is on.
+
+It needs the workflow to also run on `issue_comment`, so the reply can be seen:
+
+```yaml
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+  issues:
+    types:
+      - opened
+  issue_comment:
+    types:
+      - created
+
+jobs:
+  agentscan:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+      contents: read
+    steps:
+      - name: AgentScan
+        uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          honeypot: true
+```
+
+Notes:
+
+- Use the default `GITHUB_TOKEN` (or a GitHub App token). The bait is only
+  trusted back when a bot posted it, which is what stops a third party from
+  planting a code and having someone else's PR closed.
+- `mode` does not apply to the bait itself: it is a comment, and there is no
+  honeypot without one. It does apply to what happens after the trap is sprung.
+- The bait is skipped when the PR or issue is being auto-closed anyway.
+- Only the thread author can spring their own trap, and a code they merely
+  quoted back doesn't count.
+
+Replace the greeting with your own if the default doesn't sound like your
+project. `{username}` and `{type}` (`pull request` or `issue`) are substituted:
+
+```yaml
+- name: AgentScan
+  uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    honeypot: true
+    message-honeypot: "Thanks for the {type}, @{username}! A maintainer will review it shortly."
+    message-honeypot-first-time: "Welcome, @{username} — great to have your first {type} here!"
+```
+
+The `honeypot-triggered` output tells downstream steps whether the author took
+the bait.
 
 ---
 

@@ -70,6 +70,18 @@ inputs:
     description: "Custom message to display when account is flagged by the community. If not provided, default message will be used."
     required: false
     default: ""
+  honeypot:
+    description: "Whether to post a greeting comment carrying an instruction only automated readers act on, and flag the author when they reply with it. Requires the workflow to also run on issue_comment events."
+    required: false
+    default: "false"
+  message-honeypot:
+    description: "Custom greeting for the honeypot comment. Supports {username} and {type} placeholders. If not provided, a default greeting will be used."
+    required: false
+    default: ""
+  message-honeypot-first-time:
+    description: "Custom honeypot greeting for a first-time contributor to the repository. Falls back to 'message-honeypot' when left blank."
+    required: false
+    default: ""
 outputs:
   flagged:
     description: "Whether the account was flagged"
@@ -85,6 +97,8 @@ outputs:
     description: "Account age in days"
   username:
     description: "The GitHub username that was analyzed"
+  honeypot-triggered:
+    description: "Whether the author replied with the honeypot verification code. Only set on issue_comment runs."
 branding:
   icon: "activity"
   color: "white"
