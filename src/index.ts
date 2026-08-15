@@ -332,6 +332,8 @@ async function run() {
 		const octokit = github.getOctokit(token);
 
 		if (isCommentEvent) {
+			core.setOutput("honeypot-triggered", "false");
+
 			try {
 				const triggered = await handleHoneypotReply({
 					octokit,
@@ -348,9 +350,9 @@ async function run() {
 				});
 
 				core.setOutput("username", username);
-				core.setOutput("honeypot-triggered", triggered ? "true" : "false");
 
 				if (triggered) {
+					core.setOutput("honeypot-triggered", "true");
 					core.info(
 						`Honeypot triggered by ${username} on #${targetNumber} (automated reply detected)`,
 					);

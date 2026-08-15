@@ -2015,6 +2015,10 @@ describe("AgentScan Action", () => {
 			expect(core.warning).toHaveBeenCalledWith(
 				expect.stringContaining("Could not run the honeypot check"),
 			);
+			expect(core.setOutput).toHaveBeenCalledWith(
+				"honeypot-triggered",
+				"false",
+			);
 			expect(core.setFailed).not.toHaveBeenCalled();
 		});
 	});
