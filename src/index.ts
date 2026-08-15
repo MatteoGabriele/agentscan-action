@@ -550,7 +550,9 @@ async function run() {
 						`Could not post the honeypot comment on #${targetNumber}.`,
 					);
 				} else {
-					throw honeypotError;
+					core.warning(
+						`Could not post the honeypot comment on #${targetNumber}: ${String(honeypotError)}`,
+					);
 				}
 			}
 		}
