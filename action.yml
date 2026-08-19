@@ -5,7 +5,8 @@ author: "Matteo Gabriele"
 inputs:
   github-token:
     description: "GitHub token"
-    required: true
+    required: false
+    default: ${{ github.token }}
   allowed-users:
     description: "List of usernames to skip from scanning. Can use array syntax in workflow YAML."
     required: false
