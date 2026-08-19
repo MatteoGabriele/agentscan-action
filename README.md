@@ -28,8 +28,6 @@ jobs:
     steps:
       - name: AgentScan
         uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 The action will run automatically on new and reopened pull requests, and on newly opened issues, analyzing the author's activity patterns to detect automation signals.
@@ -38,7 +36,7 @@ The action will run automatically on new and reopened pull requests, and on newl
 
 ### Inputs
 
-- **github-token** (required): GitHub token for API access
+- **github-token** (optional): GitHub token for API access (default: `${{ github.token }}`)
 - **allowed-users** (optional): Comma-separated list of usernames to skip from scanning
 - **trusted-author-associations** (optional): Comma-separated list of author associations to skip from scanning (`collaborator`, `contributor`, `first_timer`, `first_time_contributor`, `member`, `owner`)
 - **scan-pull-requests** (optional): Whether to analyze pull request authors (default: `true`)
@@ -65,7 +63,6 @@ To skip specific team members from being scanned, add their usernames to the `al
 - name: AgentScan
   uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
   with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
     allowed-users: "dependabot,renovate,my-trusted-bot"
 ```
 
@@ -79,7 +76,6 @@ To skip analysis based on the author's relationship to the repository, set `trus
 - name: AgentScan
   uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
   with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
     trusted-author-associations: "member,owner,collaborator"
 ```
 
@@ -91,7 +87,6 @@ Use `scan-pull-requests` and `scan-issues` to control which event types are anal
 - name: AgentScan
   uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
   with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
     scan-pull-requests: true
     scan-issues: true
 ```
@@ -111,7 +106,6 @@ steps:
   - name: AgentScan
     uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
     with:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
       cache-path: ".agentscan-cache"
 ```
 
@@ -133,7 +127,6 @@ By default, the action skips posting a PR or issue comment when the analysis res
 - name: AgentScan
   uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
   with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
     comment-on-organic: true
 ```
 
@@ -147,7 +140,6 @@ To customize labels added to PRs and issues, set any of the label inputs:
 - name: AgentScan
   uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
   with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
     label-community-flagged: "security:community-flagged"
     label-mixed: "needs-review:automation-signals"
     label-automation: "blocked:automated-account"
@@ -166,7 +158,6 @@ Control what AgentScan does with its findings via `mode`:
 - name: AgentScan
   uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
   with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
     mode: silent
 ```
 
@@ -207,7 +198,6 @@ jobs:
       - name: AgentScan
         uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           honeypot: true
 ```
 
@@ -229,7 +219,6 @@ project. `{username}` and `{type}` (`pull request` or `issue`) are substituted:
 - name: AgentScan
   uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
   with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
     honeypot: true
     message-honeypot: "Thanks for the {type}, @{username}! A maintainer will review it shortly."
     message-honeypot-first-time: "Welcome, @{username} — great to have your first {type} here!"
