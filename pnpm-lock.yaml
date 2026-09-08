@@ -1739,7 +1739,6 @@ snapshots:
       obug: 2.1.1
       rolldown: 1.0.0-rc.11
     optionalDependencies:
-      '@typescript/native-preview': 7.0.0-dev.20260309.1
       typescript: 7.0.2
     transitivePeerDependencies:
       - oxc-resolver
