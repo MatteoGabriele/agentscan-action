@@ -27,7 +27,7 @@ jobs:
       contents: read
     steps:
       - name: AgentScan
-        uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
+        uses: MatteoGabriele/agentscan-action@8112fb79b33fafb8506159df20129a34209ac410
 ```
 
 The action will run automatically on new and reopened pull requests, and on newly opened issues, analyzing the author's activity patterns to detect automation signals.
@@ -61,7 +61,7 @@ To skip specific team members from being scanned, add their usernames to the `al
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
+  uses: MatteoGabriele/agentscan-action@8112fb79b33fafb8506159df20129a34209ac410
   with:
     allowed-users: "dependabot,renovate,my-trusted-bot"
 ```
@@ -74,7 +74,7 @@ To skip analysis based on the author's relationship to the repository, set `trus
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
+  uses: MatteoGabriele/agentscan-action@8112fb79b33fafb8506159df20129a34209ac410
   with:
     trusted-author-associations: "member,owner,collaborator"
 ```
@@ -85,7 +85,7 @@ Use `scan-pull-requests` and `scan-issues` to control which event types are anal
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
+  uses: MatteoGabriele/agentscan-action@8112fb79b33fafb8506159df20129a34209ac410
   with:
     scan-pull-requests: true
     scan-issues: true
@@ -104,7 +104,7 @@ steps:
       key: agentscan-cache-${{ github.actor }}
       restore-keys: agentscan-cache-
   - name: AgentScan
-    uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
+    uses: MatteoGabriele/agentscan-action@8112fb79b33fafb8506159df20129a34209ac410
     with:
       cache-path: ".agentscan-cache"
 ```
@@ -125,7 +125,7 @@ By default, the action skips posting a PR or issue comment when the analysis res
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
+  uses: MatteoGabriele/agentscan-action@8112fb79b33fafb8506159df20129a34209ac410
   with:
     comment-on-organic: true
 ```
@@ -138,7 +138,7 @@ To customize labels added to PRs and issues, set any of the label inputs:
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
+  uses: MatteoGabriele/agentscan-action@8112fb79b33fafb8506159df20129a34209ac410
   with:
     label-community-flagged: "security:community-flagged"
     label-mixed: "needs-review:automation-signals"
@@ -156,7 +156,7 @@ Control what AgentScan does with its findings via `mode`:
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
+  uses: MatteoGabriele/agentscan-action@8112fb79b33fafb8506159df20129a34209ac410
   with:
     mode: silent
 ```
@@ -196,7 +196,7 @@ jobs:
       contents: read
     steps:
       - name: AgentScan
-        uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
+        uses: MatteoGabriele/agentscan-action@8112fb79b33fafb8506159df20129a34209ac410
         with:
           honeypot: true
 ```
@@ -217,7 +217,7 @@ project. `{username}` and `{type}` (`pull request` or `issue`) are substituted:
 
 ```yaml
 - name: AgentScan
-  uses: MatteoGabriele/agentscan-action@c7d61446e7aece6bdd3edcee4558bbfc0392615e
+  uses: MatteoGabriele/agentscan-action@8112fb79b33fafb8506159df20129a34209ac410
   with:
     honeypot: true
     message-honeypot: "Thanks for the {type}, @{username}! A maintainer will review it shortly."
