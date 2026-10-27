@@ -15,8 +15,8 @@ importers:
         specifier: ^9.0.0
         version: 9.0.0
       '@unveil/identity':
-        specifier: ^2.0.4
-        version: 2.0.4
+        specifier: ^3.0.0
+        version: 3.0.0
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.5.4
@@ -711,8 +711,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@unveil/identity@2.0.4':
-    resolution: {integrity: sha512-cLH3Lm4daCBVKDQooCp+4y6DfUtadWrWEJ3DFG8ok0/KZjBzYjstnMXO0bzvb2KQv2eugRoEr+ndraDt6ghr8w==}
+  '@unveil/identity@3.0.0':
+    resolution: {integrity: sha512-K12WL5AS7s9FXiY46TCZIMS/Y9RCU0DISs9K2G4ZkOCN3K9E4axG1XrNGYw6G6SrmRtWnZT3kPO+hFnYE055Dw==}
 
   '@vitest/expect@2.1.9':
     resolution: {integrity: sha512-UJCIkTBenHeKT1TTlKMJWy1laZewsRIzYighyYiJKZreqtdxSos/S1t+ktRMQWu2CKqaarrkeszJx1cgC5tGZw==}
@@ -1557,7 +1557,7 @@ snapshots:
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
 
-  '@unveil/identity@2.0.4': {}
+  '@unveil/identity@3.0.0': {}
 
   '@vitest/expect@2.1.9':
     dependencies:
