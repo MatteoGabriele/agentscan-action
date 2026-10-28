@@ -6,8 +6,8 @@ export default defineConfig({
 		alwaysBundle: [
 			"@actions/github",
 			"@actions/core",
-			"@unveil/identity",
-			"@unveil/identity/report",
+			// Also covers subpath exports like /report and /providers/github
+			/^@unveil\/identity(\/|$)/,
 		],
 	},
 });
