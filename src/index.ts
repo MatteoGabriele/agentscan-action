@@ -2,13 +2,13 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as core from "@actions/core";
 import * as github from "@actions/github";
+import type { ClassificationLabel } from "@unveil/identity";
+import { fromGitHub } from "@unveil/identity/providers/github";
 import {
 	getClassificationDetails,
 	type Report,
 	report,
 } from "@unveil/identity/report";
-import { fromGitHub } from "@unveil/identity/providers/github";
-import type { ClassificationLabel } from '@unveil/identity'
 import {
 	buildHoneypotComment,
 	buildHoneypotResultComment,
@@ -107,10 +107,7 @@ async function handleHoneypotReply({
 }: HoneypotReplyParams): Promise<boolean> {
 	// A maintainer or third party quoting the code is not a signal about the
 	// contributor, so only the thread author can trip it.
-	if (
-		!commentAuthor ||
-		commentAuthor !== username
-	) {
+	if (!commentAuthor || commentAuthor !== username) {
 		return false;
 	}
 
@@ -449,6 +446,7 @@ async function run() {
 
 			hasCommunityFlag = !!verifiedAutomation;
 
+			// This is where the magic happens
 			analysis = report(fromGitHub({ user, events }));
 
 			if (analysis.isGitHubApp) {

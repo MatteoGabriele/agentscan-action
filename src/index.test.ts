@@ -1,14 +1,19 @@
 import fs, { rmSync } from "node:fs";
-import type { IdentifyResult } from "@unveil/identity";
 import type { Mock } from "vitest";
 
 vi.mock("@actions/core");
 vi.mock("@actions/github");
-vi.mock("@unveil/identity");
+vi.mock("@unveil/identity/report");
+vi.mock("@unveil/identity/providers/github");
 
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-import { getClassificationDetails, identify } from "@unveil/identity";
+import { fromGitHub } from "@unveil/identity/providers/github";
+import {
+	getClassificationDetails,
+	type Report,
+	report,
+} from "@unveil/identity/report";
 import { run } from "./index";
 
 describe("AgentScan Action", () => {
@@ -19,11 +24,13 @@ describe("AgentScan Action", () => {
 		repo: { owner: "test-owner", repo: "test-repo" },
 	};
 
-	const mockAnalysis: IdentifyResult = {
+	const mockAnalysis: Report = {
 		classification: "organic",
 		score: 20,
 		flags: [
 			{
+				id: "pr-volume-day",
+				facts: { prs: 1 },
 				label: "Test Flag",
 				group: "pr-volume",
 				points: 10,
@@ -34,6 +41,7 @@ describe("AgentScan Action", () => {
 		],
 		profile: { age: 365, repos: 0 },
 		isBountyHunter: false,
+		isGitHubApp: false,
 		confidence: 0.9,
 		groups: [{ group: "pr-volume", flagCount: 1, rawPoints: 10, points: 10 }],
 		window: {
@@ -161,7 +169,7 @@ describe("AgentScan Action", () => {
 	};
 
 	const setupCommonMocks = () => {
-		vi.mocked(identify).mockReturnValue(mockAnalysis);
+		vi.mocked(report).mockReturnValue(mockAnalysis);
 		vi.mocked(getClassificationDetails).mockReturnValue({
 			label: "Organic Account",
 			description: "This account appears to be organic.",
@@ -194,7 +202,7 @@ describe("AgentScan Action", () => {
 			await run();
 
 			expect(github.getOctokit).toHaveBeenCalledWith("test-token");
-			expect(identify).toHaveBeenCalled();
+			expect(report).toHaveBeenCalled();
 			expect(core.setOutput).toHaveBeenCalledWith("classification", "organic");
 			expect(core.setOutput).toHaveBeenCalledWith("username", "test-user");
 
@@ -360,7 +368,7 @@ describe("AgentScan Action", () => {
 				expect.stringContaining("Skipping analysis for test-user"),
 			);
 			expect(github.getOctokit).not.toHaveBeenCalled();
-			expect(identify).not.toHaveBeenCalled();
+			expect(report).not.toHaveBeenCalled();
 			expect(core.setOutput).not.toHaveBeenCalled();
 		});
 
@@ -371,7 +379,7 @@ describe("AgentScan Action", () => {
 
 			await run();
 
-			expect(identify).toHaveBeenCalled();
+			expect(report).toHaveBeenCalled();
 			expect(core.setOutput).toHaveBeenCalledWith("username", "test-user");
 		});
 
@@ -383,29 +391,47 @@ describe("AgentScan Action", () => {
 			expect(core.info).toHaveBeenCalledWith(
 				expect.stringContaining("Skipping analysis for test-user"),
 			);
-			expect(identify).not.toHaveBeenCalled();
+			expect(report).not.toHaveBeenCalled();
 		});
 	});
 
-	describe("Known Bots Flow - Username matches a known automation", () => {
+	describe("GitHub App Flow - Report marks the account as an app", () => {
 		beforeEach(() => {
-			setupContext();
-		});
-
-		it("should skip analysis when actor is a known bot", async () => {
+			setupInputs({
+				"comment-on-organic": "true",
+				"cache-path": ".agentscan-cache",
+				honeypot: "true",
+			});
+			setupCommonMocks();
 			Object.defineProperty(github, "context", {
 				value: { ...mockContext, actor: "dependabot[bot]" },
 				configurable: true,
 			});
-			setupInputs();
+			vi.mocked(report).mockReturnValue({
+				...mockAnalysis,
+				isGitHubApp: true,
+			});
+		});
+
+		it("should skip the rest of the run when the report says it is a GitHub App", async () => {
+			const mockOctokit = mockGetOctokit();
 
 			await run();
 
+			expect(fromGitHub).toHaveBeenCalledWith({
+				user: expect.any(Object),
+				events: [],
+			});
+			expect(report).toHaveBeenCalled();
 			expect(core.info).toHaveBeenCalledWith(
 				expect.stringContaining("known automation"),
 			);
-			expect(github.getOctokit).not.toHaveBeenCalled();
-			expect(identify).not.toHaveBeenCalled();
+			expect(core.setOutput).not.toHaveBeenCalled();
+			expect(mockOctokit.rest.issues.createComment).not.toHaveBeenCalled();
+			expect(mockOctokit.rest.issues.addLabels).not.toHaveBeenCalled();
+			expect(fs.existsSync(".agentscan-cache/dependabot[bot].json")).toBe(
+				false,
+			);
 		});
 	});
 
@@ -429,7 +455,7 @@ describe("AgentScan Action", () => {
 				expect.stringContaining("trusted author association"),
 			);
 			expect(github.getOctokit).not.toHaveBeenCalled();
-			expect(identify).not.toHaveBeenCalled();
+			expect(report).not.toHaveBeenCalled();
 		});
 
 		it("should analyze when author association is not trusted", async () => {
@@ -449,7 +475,7 @@ describe("AgentScan Action", () => {
 
 			await run();
 
-			expect(identify).toHaveBeenCalled();
+			expect(report).toHaveBeenCalled();
 		});
 	});
 
@@ -464,7 +490,7 @@ describe("AgentScan Action", () => {
 				expect.stringContaining("pull request scanning is disabled"),
 			);
 			expect(github.getOctokit).not.toHaveBeenCalled();
-			expect(identify).not.toHaveBeenCalled();
+			expect(report).not.toHaveBeenCalled();
 		});
 
 		it("should skip issue analysis by default (scan-issues defaults to false)", async () => {
@@ -484,7 +510,7 @@ describe("AgentScan Action", () => {
 				expect.stringContaining("issue scanning is disabled"),
 			);
 			expect(github.getOctokit).not.toHaveBeenCalled();
-			expect(identify).not.toHaveBeenCalled();
+			expect(report).not.toHaveBeenCalled();
 		});
 
 		it("should analyze issues when scan-issues is enabled", async () => {
@@ -502,7 +528,7 @@ describe("AgentScan Action", () => {
 
 			await run();
 
-			expect(identify).toHaveBeenCalled();
+			expect(report).toHaveBeenCalled();
 			expect(core.setOutput).toHaveBeenCalledWith("username", "issue-user");
 		});
 	});
@@ -528,7 +554,7 @@ describe("AgentScan Action", () => {
 			await run();
 
 			expect(github.getOctokit).toHaveBeenCalledWith("test-token");
-			expect(identify).toHaveBeenCalled();
+			expect(report).toHaveBeenCalled();
 			expect(core.setOutput).toHaveBeenCalledWith("classification", "organic");
 			expect(core.setOutput).toHaveBeenCalledWith("username", "issue-user");
 		});
@@ -567,7 +593,7 @@ describe("AgentScan Action", () => {
 				configurable: true,
 			});
 
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "automation",
 			});
@@ -686,7 +712,7 @@ describe("AgentScan Action", () => {
 	describe("Mode - Controls comment and label posting", () => {
 		beforeEach(() => {
 			setupContext();
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "automation",
 			});
@@ -740,7 +766,7 @@ describe("AgentScan Action", () => {
 		});
 
 		it("should not add labels for organic classification", async () => {
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "organic",
 			});
@@ -752,7 +778,7 @@ describe("AgentScan Action", () => {
 		});
 
 		it("should add mixed-signals label for mixed classification", async () => {
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "mixed",
 			});
@@ -773,7 +799,7 @@ describe("AgentScan Action", () => {
 		});
 
 		it("should add automated-account label for automation classification", async () => {
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "automation",
 			});
@@ -798,7 +824,7 @@ describe("AgentScan Action", () => {
 				"label-mixed": "needs-review:automation-signals",
 				"label-automation": "blocked:automated-account",
 			});
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "mixed",
 			});
@@ -824,7 +850,7 @@ describe("AgentScan Action", () => {
 			});
 			setupContext();
 			setupCommonMocks();
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "automation",
 			});
@@ -849,12 +875,12 @@ describe("AgentScan Action", () => {
 				"label-community-flagged": "security:community-flagged",
 			});
 			// Mock verified automation (community-flagged)
-			const flaggedAnalysis: IdentifyResult = {
+			const flaggedAnalysis: Report = {
 				...mockAnalysis,
 				classification: "organic",
 			};
 
-			vi.mocked(identify).mockReturnValue(flaggedAnalysis);
+			vi.mocked(report).mockReturnValue(flaggedAnalysis);
 			const mockOctokit = mockGetOctokit({
 				repos: {
 					getContent: vi.fn().mockResolvedValue({
@@ -886,12 +912,12 @@ describe("AgentScan Action", () => {
 
 		it("should add community-flagged label for flagged accounts", async () => {
 			// Mock verified automation (community-flagged)
-			const flaggedAnalysis: IdentifyResult = {
+			const flaggedAnalysis: Report = {
 				...mockAnalysis,
 				classification: "organic",
 			};
 
-			vi.mocked(identify).mockReturnValue(flaggedAnalysis);
+			vi.mocked(report).mockReturnValue(flaggedAnalysis);
 			const mockOctokit = mockGetOctokit({
 				repos: {
 					getContent: vi.fn().mockResolvedValue({
@@ -939,7 +965,7 @@ describe("AgentScan Action", () => {
 		};
 
 		it("includes a pre-filled report link for automation classification", async () => {
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "automation",
 			});
@@ -961,7 +987,7 @@ describe("AgentScan Action", () => {
 
 		it("does not include a report link for organic classification", async () => {
 			setupInputs({ "comment-on-organic": "true" });
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "organic",
 			});
@@ -974,7 +1000,7 @@ describe("AgentScan Action", () => {
 		});
 
 		it("does not include a report link for mixed classification", async () => {
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "mixed",
 			});
@@ -991,7 +1017,7 @@ describe("AgentScan Action", () => {
 		});
 
 		it("does not include a report link for already community-flagged accounts", async () => {
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "automation",
 			});
@@ -1026,7 +1052,7 @@ describe("AgentScan Action", () => {
 		});
 
 		it("includes the PR url as evidence, rewritten to avoid a github.com backlink on the flagged PR", async () => {
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "automation",
 			});
@@ -1079,7 +1105,7 @@ describe("AgentScan Action", () => {
 		};
 
 		it("renders a collapsible evidence section in the comment when flags are present", async () => {
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "automation",
 			});
@@ -1099,7 +1125,7 @@ describe("AgentScan Action", () => {
 		});
 
 		it("does not point the inline evidence's source link back at itself", async () => {
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "automation",
 			});
@@ -1117,7 +1143,7 @@ describe("AgentScan Action", () => {
 		});
 
 		it("omits the evidence section entirely when there are no flags", async () => {
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "organic",
 				flags: [],
@@ -1143,11 +1169,11 @@ describe("AgentScan Action", () => {
 		it("should not close when auto-close is disabled (default)", async () => {
 			setupInputs({ "auto-close": "false" });
 
-			const automationAnalysis: IdentifyResult = {
+			const automationAnalysis: Report = {
 				...mockAnalysis,
 				classification: "automation",
 			};
-			vi.mocked(identify).mockReturnValue(automationAnalysis);
+			vi.mocked(report).mockReturnValue(automationAnalysis);
 			const mockOctokit = mockGetOctokit();
 
 			await run();
@@ -1161,11 +1187,11 @@ describe("AgentScan Action", () => {
 				"auto-close-classifications": "automation",
 			});
 
-			const automationAnalysis: IdentifyResult = {
+			const automationAnalysis: Report = {
 				...mockAnalysis,
 				classification: "automation",
 			};
-			vi.mocked(identify).mockReturnValue(automationAnalysis);
+			vi.mocked(report).mockReturnValue(automationAnalysis);
 
 			const mockOctokit = mockGetOctokit();
 
@@ -1186,11 +1212,11 @@ describe("AgentScan Action", () => {
 				"auto-close-classifications": "automation, mixed",
 			});
 
-			const mixedAnalysis: IdentifyResult = {
+			const mixedAnalysis: Report = {
 				...mockAnalysis,
 				classification: "mixed",
 			};
-			vi.mocked(identify).mockReturnValue(mixedAnalysis);
+			vi.mocked(report).mockReturnValue(mixedAnalysis);
 
 			const mockOctokit = mockGetOctokit();
 
@@ -1205,11 +1231,11 @@ describe("AgentScan Action", () => {
 				"auto-close-classifications": '["automation", "mixed"]',
 			});
 
-			const automationAnalysis: IdentifyResult = {
+			const automationAnalysis: Report = {
 				...mockAnalysis,
 				classification: "automation",
 			};
-			vi.mocked(identify).mockReturnValue(automationAnalysis);
+			vi.mocked(report).mockReturnValue(automationAnalysis);
 
 			const mockOctokit = mockGetOctokit();
 
@@ -1224,11 +1250,11 @@ describe("AgentScan Action", () => {
 				"auto-close-classifications": "automation",
 			});
 
-			const mixedAnalysis: IdentifyResult = {
+			const mixedAnalysis: Report = {
 				...mockAnalysis,
 				classification: "mixed",
 			};
-			vi.mocked(identify).mockReturnValue(mixedAnalysis);
+			vi.mocked(report).mockReturnValue(mixedAnalysis);
 
 			const mockOctokit = mockGetOctokit();
 
@@ -1283,7 +1309,7 @@ describe("AgentScan Action", () => {
 		});
 
 		it("reports the full analysis result for a flagged account", async () => {
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "automation",
 				score: 82,
@@ -1361,7 +1387,7 @@ describe("AgentScan Action", () => {
 
 		it("uses the classification's custom message instead of the default", async () => {
 			setupInputs({ "message-automation": "Bots are not welcome here." });
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "automation",
 			});
@@ -1383,7 +1409,7 @@ describe("AgentScan Action", () => {
 				"message-automation": "Classification message.",
 				"message-community-flagged": "The community flagged this account.",
 			});
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "automation",
 			});
@@ -1435,7 +1461,7 @@ describe("AgentScan Action", () => {
 			setupInputs({ "auto-close": "true" });
 			setupContext();
 			setupCommonMocks();
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "automation",
 			});
@@ -1501,7 +1527,7 @@ describe("AgentScan Action", () => {
 			setupInputs({ "comment-on-organic": "true" });
 			setupContext();
 			setupCommonMocks();
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "insufficient-data",
 				score: -1,
@@ -1607,7 +1633,7 @@ describe("AgentScan Action", () => {
 
 		it("does not post bait when the PR is being auto-closed anyway", async () => {
 			setupInputs({ honeypot: "true", "auto-close": "true" });
-			vi.mocked(identify).mockReturnValue({
+			vi.mocked(report).mockReturnValue({
 				...mockAnalysis,
 				classification: "automation",
 			});
@@ -1776,7 +1802,7 @@ describe("AgentScan Action", () => {
 			await run();
 
 			expect(github.getOctokit).not.toHaveBeenCalled();
-			expect(identify).not.toHaveBeenCalled();
+			expect(report).not.toHaveBeenCalled();
 		});
 
 		it("never runs the activity analysis on a comment event", async () => {
@@ -1786,7 +1812,7 @@ describe("AgentScan Action", () => {
 
 			await run();
 
-			expect(identify).not.toHaveBeenCalled();
+			expect(report).not.toHaveBeenCalled();
 		});
 
 		it("comments and labels when the author replies with the code", async () => {
@@ -1929,36 +1955,6 @@ describe("AgentScan Action", () => {
 
 			expect(mockOctokit.rest.issues.createComment).not.toHaveBeenCalled();
 			expect(mockOctokit.rest.issues.addLabels).not.toHaveBeenCalled();
-		});
-
-		it("ignores a reply from a known bot", async () => {
-			setupInputs({ honeypot: "true" });
-			Object.defineProperty(github, "context", {
-				value: {
-					actor: "dependabot[bot]",
-					payload: {
-						issue: {
-							number: 123,
-							user: { login: "dependabot[bot]" },
-							pull_request: { url: "https://api.github.com" },
-						},
-						comment: {
-							id: 9,
-							body: BAIT_TOKEN,
-							user: { login: "dependabot[bot]" },
-						},
-					},
-					repo: { owner: "test-owner", repo: "test-repo" },
-				},
-				configurable: true,
-			});
-			mockGetOctokit(withBait());
-
-			await run();
-
-			expect(core.info).toHaveBeenCalledWith(
-				expect.stringContaining("known automation"),
-			);
 		});
 
 		it("labels only in 'labels' mode and comments only in 'comment' mode", async () => {

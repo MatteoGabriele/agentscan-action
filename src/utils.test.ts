@@ -1,8 +1,5 @@
-import type {
-	GitHubEvent,
-	IdentifyFlag,
-	IdentityClassification,
-} from "@unveil/identity";
+import type { ActivityEvent, ClassificationLabel } from "@unveil/identity";
+import type { ReportFlag } from "@unveil/identity/report";
 import { describe, expect, it } from "vitest";
 import {
 	buildReportIssueUrl,
@@ -43,7 +40,7 @@ describe("parseStringArray", () => {
 describe("parseTypedArray", () => {
 	const isIdentityClassification = (
 		item: string,
-	): item is IdentityClassification =>
+	): item is ClassificationLabel =>
 		["organic", "mixed", "automation"].includes(item);
 
 	it("should parse empty input as empty array", () => {
@@ -85,15 +82,18 @@ describe("parseTypedArray", () => {
 });
 
 describe("buildReportIssueUrl", () => {
-	const makeFlag = (overrides: Partial<IdentifyFlag> = {}): IdentifyFlag => ({
-		label: "Test Flag",
-		group: "pr-volume",
-		points: 10,
-		detail: "Test detail",
-		data: [],
-		events: [],
-		...overrides,
-	});
+	const makeFlag = (overrides: Partial<ReportFlag> = {}): ReportFlag =>
+		({
+			id: "pr-volume-day",
+			facts: { prs: 1 },
+			label: "Test Flag",
+			group: "pr-volume",
+			points: 10,
+			detail: "Test detail",
+			data: [],
+			events: [],
+			...overrides,
+		}) as ReportFlag;
 
 	it("points at the report-automated-account issue template", () => {
 		const url = new URL(
@@ -243,21 +243,12 @@ describe("buildReportIssueUrl", () => {
 		);
 	});
 
-	const makePrEvent = (
-		repoName: string,
-		number: number,
-		htmlUrl?: string,
-	): GitHubEvent =>
-		({
-			type: "PullRequestEvent",
-			repo: { name: repoName },
-			payload: {
-				pull_request: {
-					number,
-					...(htmlUrl ? { html_url: htmlUrl } : {}),
-				},
-			},
-		}) as unknown as GitHubEvent;
+	const makePrEvent = (repoName: string, number: number): ActivityEvent => ({
+		type: "pull-request",
+		at: "2024-01-01T00:00:00Z",
+		repo: repoName,
+		pullRequest: { number },
+	});
 
 	it("lists example PRs derived from the flags' underlying events, rewritten to avoid backlinks", () => {
 		const url = new URL(
@@ -269,12 +260,7 @@ describe("buildReportIssueUrl", () => {
 				flags: [
 					makeFlag({
 						events: [
-							makePrEvent(
-								"owner/repo1",
-								10,
-								"https://github.com/owner/repo1/pull/10",
-							),
-							// No html_url on the raw event: falls back to repo + number.
+							makePrEvent("owner/repo1", 10),
 							makePrEvent("owner/repo2", 20),
 						],
 					}),
