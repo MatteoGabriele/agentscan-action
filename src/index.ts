@@ -2,12 +2,13 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as core from "@actions/core";
 import * as github from "@actions/github";
+import type { ClassificationLabel } from "@unveil/identity";
+import { fromGitHub } from "@unveil/identity/providers/github";
 import {
 	getClassificationDetails,
-	type IdentifyResult,
-	type IdentityClassification,
-	identify,
-} from "@unveil/identity";
+	type Report,
+	report,
+} from "@unveil/identity/report";
 import {
 	buildHoneypotComment,
 	buildHoneypotResultComment,
@@ -17,7 +18,6 @@ import {
 	hasHoneypotToken,
 	isBotComment,
 } from "./honeypot";
-import { isKnownBot } from "./known-bots";
 import {
 	buildEvidenceLines,
 	buildReportIssueUrl,
@@ -33,19 +33,20 @@ type AutomationListItem = {
 };
 
 type CacheEntry = {
-	analysis: IdentifyResult;
+	analysis: Report;
 	hasCommunityFlag: boolean;
 	isFlagged: boolean;
 	timestamp: number;
 	userId?: number;
+	version?: number;
 };
 
-type CustomMessages = Partial<Record<IdentityClassification, string | null>> & {
+type CustomMessages = Partial<Record<ClassificationLabel, string | null>> & {
 	communityFlagged?: string | null;
 };
 
 type LabelMap = Record<
-	Exclude<IdentityClassification, "organic" | "insufficient-data">,
+	Exclude<ClassificationLabel, "organic" | "insufficient-data">,
 	string
 >;
 
@@ -60,7 +61,12 @@ type AuthorAssociation =
 type Mode = "full" | "labels" | "comment" | "silent";
 
 const CACHE_TTL_DAYS = 2;
-const DEFAULT_AUTO_CLOSE_CLASSIFICATION: IdentityClassification = "automation";
+
+// Bump whenever the cached analysis shape changes 
+// so entries written by older versions are ignored.
+const CACHE_VERSION = 3;
+
+const DEFAULT_AUTO_CLOSE_CLASSIFICATION: ClassificationLabel = "automation";
 const MARKER = "<!-- agentscanapp-bot -->";
 
 function getLabelInput(name: string, defaultValue: string): string {
@@ -107,11 +113,7 @@ async function handleHoneypotReply({
 }: HoneypotReplyParams): Promise<boolean> {
 	// A maintainer or third party quoting the code is not a signal about the
 	// contributor, so only the thread author can trip it.
-	if (
-		!commentAuthor ||
-		commentAuthor !== username ||
-		isKnownBot(commentAuthor)
-	) {
+	if (!commentAuthor || commentAuthor !== username) {
 		return false;
 	}
 
@@ -218,9 +220,9 @@ async function run() {
 				].includes(item),
 		);
 
-		const autoCloseClassifications = parseTypedArray<IdentityClassification>(
+		const autoCloseClassifications = parseTypedArray<ClassificationLabel>(
 			autoCloseClassificationsInput || DEFAULT_AUTO_CLOSE_CLASSIFICATION,
-			(item): item is IdentityClassification =>
+			(item): item is ClassificationLabel =>
 				["mixed", "automation"].includes(item),
 		);
 
@@ -314,11 +316,6 @@ async function run() {
 			return;
 		}
 
-		if (isKnownBot(username)) {
-			core.info(`Skipping analysis for ${username} (known automation)`);
-			return;
-		}
-
 		if (
 			authorAssociation &&
 			trustedAuthorAssociations.includes(authorAssociation)
@@ -385,7 +382,11 @@ async function run() {
 					const cacheAgeMs = Date.now() - cached.timestamp;
 					const cacheAgeDays = cacheAgeMs / (1000 * 60 * 60 * 24);
 
-					if (cacheAgeDays < CACHE_TTL_DAYS) {
+					if (cached.version !== CACHE_VERSION) {
+						core.info(
+							`Ignoring incompatible cache for ${username} (version ${cached.version ?? "unknown"}, expected ${CACHE_VERSION})`,
+						);
+					} else if (cacheAgeDays < CACHE_TTL_DAYS) {
 						cachedAnalysis = cached;
 						core.info(
 							`Using cached analysis for ${username} (${cacheAgeDays.toFixed(1)} days old)`,
@@ -402,14 +403,14 @@ async function run() {
 		}
 
 		let hasCommunityFlag = false;
-		let analysis: IdentifyResult | null = null;
+		let analysis: Report | null = null;
 		let isFlagged = false;
 		let userId: number | undefined;
 
 		// Use cached analysis if available, otherwise make API calls
 		if (cachedAnalysis) {
 			// Use cached analysis
-			analysis = cachedAnalysis.analysis as IdentifyResult;
+			analysis = cachedAnalysis.analysis as Report;
 			hasCommunityFlag = (cachedAnalysis.hasCommunityFlag as boolean) || false;
 			isFlagged = (cachedAnalysis.isFlagged as boolean) || false;
 			userId = cachedAnalysis.userId as number | undefined;
@@ -455,7 +456,13 @@ async function run() {
 
 			hasCommunityFlag = !!verifiedAutomation;
 
-			analysis = identify({ user, events });
+			// This is where the magic happens
+			analysis = report(fromGitHub({ user, events }));
+
+			if (analysis.isGitHubApp) {
+				core.info(`Skipping analysis for ${username} (known automation)`);
+				return;
+			}
 
 			isFlagged = hasCommunityFlag || analysis.classification !== "organic";
 
@@ -475,6 +482,7 @@ async function run() {
 								isFlagged,
 								timestamp: Date.now(),
 								userId,
+								version: CACHE_VERSION,
 							} as CacheEntry,
 							null,
 							2,

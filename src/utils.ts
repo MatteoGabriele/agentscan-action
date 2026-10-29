@@ -1,4 +1,5 @@
-import type { IdentifyFlag, IdentityClassification } from "@unveil/identity";
+import type { ClassificationLabel } from "@unveil/identity";
+import type { ReportFlag } from "@unveil/identity/report";
 
 const REPORT_ISSUE_URL =
 	"https://github.com/matteogabriele/agentscan/issues/new";
@@ -8,14 +9,14 @@ const MAX_EXAMPLE_PRS = 5;
 type ReportIssueParams = {
 	username: string;
 	userId: number | undefined;
-	classification: IdentityClassification;
+	classification: ClassificationLabel;
 	score: number;
-	flags: IdentifyFlag[];
+	flags: ReportFlag[];
 	sourceUrl: string;
 };
 
 type EvidenceParams = {
-	flags: IdentifyFlag[];
+	flags: ReportFlag[];
 	sourceUrl?: string;
 };
 
@@ -39,28 +40,22 @@ function withoutBacklink(url: string): string {
 }
 
 /**
- * Flags carry the raw GitHub events that triggered them. Pull a handful of the
+ * Flags carry the activity events that triggered them. Pull a handful of the
  * actual PRs behind a "PR volume"/"fork→PR pattern" style flag so a reviewer has
  * concrete examples to look at, instead of just the aggregate detail string.
  */
-function extractExamplePrUrls(flags: IdentifyFlag[], limit: number): string[] {
+function extractExamplePrUrls(flags: ReportFlag[], limit: number): string[] {
 	const urls = new Set<string>();
 
 	for (const flag of flags) {
 		for (const event of flag.events ?? []) {
 			if (urls.size >= limit) break;
-			if (event.type !== "PullRequestEvent") continue;
+			if (event.type !== "pull-request") continue;
 
-			const pr = event.payload?.pull_request as
-				| { html_url?: string; number?: number }
-				| undefined;
-			const url =
-				pr?.html_url ??
-				(event.repo?.name && pr?.number !== undefined
-					? `https://github.com/${event.repo.name}/pull/${pr.number}`
-					: undefined);
-
-			if (url) urls.add(url);
+			const number = event.pullRequest?.number;
+			if (event.repo && number !== undefined) {
+				urls.add(`https://github.com/${event.repo}/pull/${number}`);
+			}
 		}
 	}
 

@@ -24,6 +24,6 @@
 	"dependencies": {
 		"@actions/core": "^3.0.0",
 		"@actions/github": "^9.0.0",
-		"@unveil/identity": "^2.0.4"
+		"@unveil/identity": "^3.0.0"
 	}
 }
