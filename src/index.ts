@@ -38,6 +38,7 @@ type CacheEntry = {
 	isFlagged: boolean;
 	timestamp: number;
 	userId?: number;
+	version?: number;
 };
 
 type CustomMessages = Partial<Record<ClassificationLabel, string | null>> & {
@@ -60,6 +61,11 @@ type AuthorAssociation =
 type Mode = "full" | "labels" | "comment" | "silent";
 
 const CACHE_TTL_DAYS = 2;
+
+// Bump whenever the cached analysis shape changes 
+// so entries written by older versions are ignored.
+const CACHE_VERSION = 3;
+
 const DEFAULT_AUTO_CLOSE_CLASSIFICATION: ClassificationLabel = "automation";
 const MARKER = "<!-- agentscanapp-bot -->";
 
@@ -376,7 +382,11 @@ async function run() {
 					const cacheAgeMs = Date.now() - cached.timestamp;
 					const cacheAgeDays = cacheAgeMs / (1000 * 60 * 60 * 24);
 
-					if (cacheAgeDays < CACHE_TTL_DAYS) {
+					if (cached.version !== CACHE_VERSION) {
+						core.info(
+							`Ignoring incompatible cache for ${username} (version ${cached.version ?? "unknown"}, expected ${CACHE_VERSION})`,
+						);
+					} else if (cacheAgeDays < CACHE_TTL_DAYS) {
 						cachedAnalysis = cached;
 						core.info(
 							`Using cached analysis for ${username} (${cacheAgeDays.toFixed(1)} days old)`,
@@ -472,6 +482,7 @@ async function run() {
 								isFlagged,
 								timestamp: Date.now(),
 								userId,
+								version: CACHE_VERSION,
 							} as CacheEntry,
 							null,
 							2,

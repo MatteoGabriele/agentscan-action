@@ -165,6 +165,7 @@ describe("AgentScan Action", () => {
 			hasCommunityFlag: false,
 			isFlagged: false,
 			timestamp: Date.now() - daysOld * 24 * 60 * 60 * 1000,
+			version: 3,
 		};
 	};
 
@@ -305,6 +306,31 @@ describe("AgentScan Action", () => {
 				expect.stringContaining("Using cached analysis"),
 			);
 			expect(mockOctokit.rest.issues.createComment).toHaveBeenCalled();
+		});
+
+		it("should ignore fresh cache written by an older version", async () => {
+			// Pre-v3 entries had no version and stored raw GitHub events in flags
+			const { version: _, ...legacyCacheData } = createCacheEntry(1);
+			fs.mkdirSync(".agentscan-cache", { recursive: true });
+			fs.writeFileSync(
+				".agentscan-cache/test-user.json",
+				JSON.stringify(legacyCacheData),
+			);
+
+			await run();
+
+			expect(core.info).toHaveBeenCalledWith(
+				expect.stringContaining("Ignoring incompatible cache"),
+			);
+
+			const mockOctokit = vi.mocked(github.getOctokit).mock.results[0].value;
+			expect(mockOctokit.rest.users.getByUsername).toHaveBeenCalled();
+			expect(report).toHaveBeenCalled();
+
+			const newCacheData = JSON.parse(
+				fs.readFileSync(".agentscan-cache/test-user.json", "utf-8"),
+			);
+			expect(newCacheData.version).toBe(3);
 		});
 
 		it("should invalidate stale cache and make API calls", async () => {
