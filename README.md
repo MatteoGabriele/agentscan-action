@@ -1,6 +1,6 @@
 # AgentScan Action
 
-GitHub action that analyzes PR and issue authors' recent activity patterns to detect automation signals.
+GitHub action that analyzes PR and issue authors' recent activity patterns to [detect automation signals](https://github.com/MatteoGabriele/agentscan#agentscan).
 
 ## Setup
 
